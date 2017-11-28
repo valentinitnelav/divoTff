@@ -6,6 +6,7 @@ library(readxl)
 library(data.table)
 library(geosphere)
 library(mapview)
+library(sp)
 
 # =============================================================================
 # Read & prepare data

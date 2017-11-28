@@ -97,7 +97,7 @@ rm(mueller_2017_altitude)
 # Add location3 info
 # -------------------------------------
 # Read matching location3 estimates for 2017 data
-# The csv file below is th eoutput of the script 
+# The csv file below is the output of the script 
 # BES_12_2017\match_locations\scripts\match_coords.R
 loc3_2017 <- fread(input = "../match_locations/output/sites2017_min_dist_match_location3.csv")
 # Merge
@@ -309,7 +309,8 @@ plot(pro_sym)
 pro2 <- smacof::Procrustes(nmds_bray_vegan$points, nmds_bray_smacof$conf)
 pro2
 plot(pro2)
-# There are no noticeable differences.
+# or rotate axis
+plot(smacof::Procrustes(nmds_bray_smacof$conf, nmds_bray_vegan$points))
 
 # Jaccard
 # -------------------------------------
@@ -322,14 +323,17 @@ plot(smacof::Procrustes(nmds_jaccard_smacof$conf, nmds_jaccard_vegan$points))
 # =============================================================================
 # Prepare & plot nMDS results
 # =============================================================================
+# Aggregate altitude
 aggreg_altitude <- syrph_dt[, .(altitude_avg = round(mean(altitude, na.rm = TRUE)/100)*100,
                                 altitue_range = paste0(round(range(altitude, 
                                                                    na.rm = TRUE)/100)*100, 
                                                        collapse = "-")), 
                             by = loc_5]
+# Check unique values
 sort(unique(aggreg_altitude$altitude_avg))
 sort(unique(aggreg_altitude$altitue_range))
 
+# Prepare data for ggplot
 nmds_points <- rbind(nmds_bray_vegan$points,
                      nmds_jaccard_vegan$points,
                      nmds_bray_smacof$conf,
@@ -340,7 +344,7 @@ nmds_points <- data.table(nmds_points,
                           package = rep(c("vegan", "smacof"), each = 2* nrow(loc5sp_df)),
                           dist_idx = rep(c("Bray-Curtis", "Jaccard"), 
                                          each = nrow(loc5sp_df), times = 2))
-
+# Merge coordinates with altitude info
 nmds_points <- merge(x = nmds_points,
                      y = aggreg_altitude,
                      by.x = "loc5",
@@ -348,6 +352,8 @@ nmds_points <- merge(x = nmds_points,
                      all.x = TRUE, 
                      sort = FALSE)
 
+# Plot nMDS results
+# -----------------------------------------------------------------------------
 pj <- position_jitter(width = 0.01, height = 0.01)
 set.seed(66)
 my_plot <- 
@@ -357,44 +363,69 @@ my_plot <-
   geom_point(aes(fill = factor(altitude_avg)),
              size = 2, 
              pch = 21,
-             position = pj) +
+             position = pj,
+             show.legend = FALSE) +
   # geom_text(aes(label = loc5),
   #           vjust = 1,
   #           size = 1,
   #           position = pj) +
   geom_label_repel(aes(label = loc5,
-                      fill = factor(altitude_avg)),
-                  fontface = 'bold', 
-                  color = 'white',
-                  # Add extra padding around each text label.
-                  box.padding = 0.6,
-                  # Add extra padding around each data point.
-                  point.padding = 0.2,
-                  # label size
-                  size = 1,
-                  # Color of the line segments.
-                  segment.color = '#cccccc',
-                  # line segment transparency
-                  segment.alpha = .6,
-                  # line segment thickness
-                  segment.size = .25,
-                  # the force of repulsion between overlapping text labels
-                  force = 6,
-                  # maximum number of iterations to attempt to resolve overlaps
-                  max.iter = 10e4) +
-                  # turn labels off in the legend (otherwise you get something like https://goo.gl/fW7I7P)
-                  # show.legend = FALSE) +
+                       fill = factor(altitude_avg)),
+                   show.legend = TRUE,
+                   fontface = 'bold', 
+                   color = 'black',
+                   # Add extra padding around each text label.
+                   box.padding = 0.6,
+                   # Add extra padding around each data point.
+                   point.padding = 0.2,
+                   # label size
+                   size = 1.7,
+                   alpha = 0.6,
+                   # Color of the line segments.
+                   segment.color = '#cccccc',
+                   # line segment transparency
+                   segment.alpha = .6,
+                   # line segment thickness
+                   segment.size = .25,
+                   # the force of repulsion between overlapping text labels
+                   force = 50,
+                   # maximum number of iterations to attempt to resolve overlaps
+                   max.iter = 10e4,
+                   min.segment.length = 0.01,
+                   seed = 2017) +
   # Adjust the distance (gap) from axis
-  scale_x_continuous(expand = c(1, 0)) +
-  scale_y_continuous(expand = c(1, 0)) +
+  scale_x_continuous(expand = c(0.5, 0)) +
+  scale_y_continuous(expand = c(0.5, 0)) +
+  labs(fill = 'Average altitude (m)') +
   theme_bw() +
   theme(panel.grid = element_blank()) +
   facet_wrap(package ~ dist_idx, 
              scales = "free", 
              labeller = label_both)
 # my_plot
-ggsave(filename = "output/nMDS_loc5.pdf", plot = my_plot, width = 29.7, height = 21, units = "cm")
+ggsave(filename = "output/nMDS_loc5.pdf", 
+       plot = my_plot, 
+       width = 29.7, 
+       height = 21, 
+       units = "cm")
 
+# Plot altitude histograms
+# -----------------------------------------------------------------------------
+my_histos <- 
+  ggplot(data = syrph_dt,
+         aes(altitude)) +
+  geom_histogram() +
+  facet_wrap(~loc_5) +
+  theme_bw() +
+  # edit strip text for each panel
+  theme(strip.text = element_text(size = 8, 
+                                  face = "bold"))
+
+ggsave(filename = "output/histo_altitude_loc5.pdf", 
+       plot = my_histos, 
+       width = 29.7, 
+       height = 21, 
+       units = "cm")
 
 # =============================================================================
 # References

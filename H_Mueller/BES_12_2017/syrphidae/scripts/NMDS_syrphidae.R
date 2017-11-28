@@ -65,6 +65,21 @@ setDT(mueller_2016)
 # Subset
 mueller_2016 <- mueller_2016[,.(Site, location, location3, location4, location5, 
                                 insectspecies, Family)]
+
+# Merge altitude data with main table
+# -------------------------------------
+mueller_2016_altitude <- readxl::read_excel(path = "data/mueller data 2016_with elevation.xlsx", 
+                                            sheet = "locations", 
+                                            col_names = TRUE)
+setDT(mueller_2016_altitude)
+
+mueller_2016 <- merge(x = mueller_2016,
+                      y = mueller_2016_altitude[,.(site, `elevation (m)`)],
+                      by.x = "Site",
+                      by.y = "site",
+                      all.x = TRUE)
+rm(mueller_2016_altitude)
+
 # label all columns with suffix
 setnames(x = mueller_2016, paste0(names(mueller_2016), "_2016"))
 
@@ -141,11 +156,8 @@ syrph_past[, period := "mueller_past"]
 # For 2016 data
 # -------------------------------------
 syrph_2016 <- mueller_2016[insectspecies_2016 %in% syrph_names[,syrphidae_sp], 
-                           .(insectspecies_2016, location5_2016)]
-setnames(x = syrph_2016, c("insect_sp", "loc_5"))
-# there is no altitude data so far;
-# create empty column for merging reasons
-syrph_2016[, altitude := NA] 
+                           .(insectspecies_2016, location5_2016, `elevation (m)_2016`)]
+setnames(x = syrph_2016, c("insect_sp", "loc_5" , "altitude"))
 syrph_2016[, period := "mueller_2016"]
 
 # For 2017 data
@@ -159,6 +171,38 @@ syrph_2017[, period := "mueller_2017"]
 # -------------------------------------
 syrph_dt <- rbindlist(list(syrph_past, syrph_2016, syrph_2017))
 
+# Remove given sites (not enough sampled)
+# -----------------------------------------------------------------------------
+sort(unique(syrph_dt$loc_5))
+sites_2remove <- c("Agums, Glurns" ,
+                   "Filisur, Schmitten, Wiesen, Alvaneu",
+                   "Landeck-Flirsch",
+                   "Oberengadin (2)",
+                   "Oberengadin (3)",
+                   "Surava_Tiefencastel",
+                   "Unterengadin",
+                   "Val Viola, Bormio")
+syrph_dt <- syrph_dt[!(loc_5 %in% sites_2remove)]
+rm(sites_2remove)
+
+# Split given sites by altitude threshold
+# -----------------------------------------------------------------------------
+altit_threshold <- 2500 # altitude to split a site
+sites_2split <- c("Davos, Dischma, Strela",
+                  "Franzenshöhe, Madatsch",
+                  "Oberengadin (5)",
+                  "Stelvio, Piz Umbrail, Spondalonga",
+                  "Suldental")
+
+syrph_dt[, loc_5_orig := loc_5]
+syrph_dt[, loc_5 := ifelse( (loc_5 %in% sites_2split) & 
+                              (altitude >= altit_threshold),
+                            yes = paste0(loc_5, 
+                                         " (>=", 
+                                         altit_threshold, 
+                                         " m)"),
+                            no = loc_5 )]
+
 # remove objects that are not needed
 # rm(syrph_past, syrph_2016, syrph_2017, syrph_names,
 #    mueller_past, mueller_2016, mueller_2017)
@@ -168,6 +212,7 @@ syrph_dt <- rbindlist(list(syrph_past, syrph_2016, syrph_2017))
 # -----------------------------------------------------------------------------
 # remove NA locations
 syrph_dt <- syrph_dt[!is.na(loc_5)]
+
 loc5sp_mat <- table( syrph_dt[,.(loc_5, insect_sp)] )
 
 # for easy visual inspection transform to data.frame object
@@ -214,7 +259,7 @@ jaccard_dist <- vegdist(loc5sp_df, method = "jaccard", binary = TRUE)
 # vegan - Bray-Curtis
 # -------------------------------------
 set.seed(2017)
-nmds_bray_vegan <- vegan::metaMDS(comm = bray_dist, k = 2, autotransform = FALSE)
+nmds_bray_vegan <- vegan::metaMDS(comm = bray_dist, k = 2, autotransform = TRUE)
 nmds_bray_vegan # stress is given as proportion from 0 to 1 (from ?metaMDS, section Value)
 # Shepard Diagram
 stressplot(nmds_bray_vegan)
@@ -222,7 +267,7 @@ stressplot(nmds_bray_vegan)
 # vegan - Jaccard
 # -------------------------------------
 set.seed(2017)
-nmds_jaccard_vegan <- vegan::metaMDS(comm = jaccard_dist, k = 2, autotransform = FALSE)
+nmds_jaccard_vegan <- vegan::metaMDS(comm = jaccard_dist, k = 2, autotransform = TRUE)
 nmds_jaccard_vegan
 stressplot(nmds_jaccard_vegan)
 
@@ -427,6 +472,7 @@ ggsave(filename = "output/histo_altitude_loc5.pdf",
        height = 21, 
        units = "cm")
 
+fwrite(syrph_dt, file = "output/syrph_dt.csv")
 # =============================================================================
 # References
 # =============================================================================

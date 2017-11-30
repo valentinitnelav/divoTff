@@ -29,6 +29,9 @@ setnames(x = syrph_names,
          old = "name for analysis",
          new = "syrphidae_sp")
 
+# check values
+sort(unique(syrph_names$syrphidae_sp))
+
 ### Read historic data
 # -----------------------------------------------------------------------------
 mueller_past <- readxl::read_excel(path = "data/Mueller Plants Pollinators 1874-1879 6weeks _ v20171122.xlsx", 
@@ -37,20 +40,20 @@ mueller_past <- readxl::read_excel(path = "data/Mueller Plants Pollinators 1874-
 # The warnings are not affecting current columns of interest
 setDT(mueller_past)
 # Subset
-mueller_past <- mueller_past[,.(altitude_mean_rounded, `altitude (m)`,
-                                location3, location4, location5,
-                                insectspecies, InsectFamilyOld_WD_JE, InsectFamily_TK)]
+mueller_past <- mueller_past[,.(`altitude (m)`,
+                                location3, location5,
+                                insectspecies, `new plant species (FH)`)]
 # rename columns so not to have spaces in column names
 setnames(x = mueller_past, 
-         old = "altitude (m)",
-         new = "altitude_range")
+         old = c("altitude (m)", "new plant species (FH)"),
+         new = c("altitude_range", "plant_FH"))
 
 # Split altitude range in min & max values & compute average
-mueller_past[, c("alt1", "alt2") := tstrsplit(x = altitude_range, 
+mueller_past[, c("alt_min", "alt_max") := tstrsplit(x = altitude_range, 
                                               split = '-', 
                                               type.convert = TRUE)]
 mueller_past[, altitude_avg :=  rowMeans(.SD, na.rm = TRUE), 
-             .SDcols = c("alt1", "alt2")]
+             .SDcols = c("alt_min", "alt_max")]
 
 # label all columns with suffix
 setnames(x = mueller_past, paste0(names(mueller_past), "_past"))
@@ -63,8 +66,8 @@ mueller_2016 <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2016 
                                    col_names = TRUE)
 setDT(mueller_2016)
 # Subset
-mueller_2016 <- mueller_2016[,.(Site, location, location3, location4, location5, 
-                                insectspecies, Family)]
+mueller_2016 <- mueller_2016[,.(Site, location, location3, location5, 
+                                insectspecies, Plant)]
 
 # Merge altitude data with main table
 # -------------------------------------
@@ -90,11 +93,11 @@ mueller_2017 <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2017 
                                    col_names = TRUE)
 setDT(mueller_2017)
 # Subset
-mueller_2017 <- mueller_2017[,.(Site, insectspecies, `insect family`)]
+mueller_2017 <- mueller_2017[,.(Site, insectspecies, `plant species-correctedWD`)]
 # rename columns so not to have spaces in column names
 setnames(x = mueller_2017, 
-         old = "insect family",
-         new = "Family")
+         old = "plant species-correctedWD",
+         new = "plant")
 
 # Merge altitude data with main table
 # -------------------------------------
@@ -149,27 +152,56 @@ setnames(x = mueller_2017, paste0(names(mueller_2017), "_2017"))
 # For past data
 # -------------------------------------
 syrph_past <- mueller_past[insectspecies_past %in% syrph_names[,syrphidae_sp], 
-                           .(insectspecies_past, location5_past, altitude_avg_past)]
-setnames(x = syrph_past, c("insect_sp", "loc_5", "altitude"))
+                           .(plant_FH_past, insectspecies_past, 
+                             location5_past, altitude_avg_past)]
+setnames(x = syrph_past, c("plant_sp", "insect_sp", "loc_5", "altitude"))
 syrph_past[, period := "mueller_past"]
 
 # For 2016 data
 # -------------------------------------
 syrph_2016 <- mueller_2016[insectspecies_2016 %in% syrph_names[,syrphidae_sp], 
-                           .(insectspecies_2016, location5_2016, `elevation (m)_2016`)]
-setnames(x = syrph_2016, c("insect_sp", "loc_5" , "altitude"))
+                           .(Plant_2016, insectspecies_2016, location5_2016, `elevation (m)_2016`)]
+setnames(x = syrph_2016, c("plant_sp", "insect_sp", "loc_5" , "altitude"))
 syrph_2016[, period := "mueller_2016"]
 
 # For 2017 data
 # -------------------------------------
 syrph_2017 <- mueller_2017[insectspecies_2017 %in% syrph_names[,syrphidae_sp], 
-                           .(insectspecies_2017, location5_past_2017, elevation_2017)]
-setnames(x = syrph_2017, c("insect_sp", "loc_5", "altitude"))
+                           .(plant_2017, insectspecies_2017, location5_past_2017, elevation_2017)]
+setnames(x = syrph_2017, c("plant_sp", "insect_sp", "loc_5", "altitude"))
 syrph_2017[, period := "mueller_2017"]
 
 # rbind (get the long format)
 # -------------------------------------
 syrph_dt <- rbindlist(list(syrph_past, syrph_2016, syrph_2017))
+
+
+# check plant species names
+# -------------------------------------
+sort(unique(syrph_dt$plant_sp))
+
+# Found following artefacts:
+
+# [76] "Helianthemum alpestre (jacq.) DC."      mueller_2016                              
+# [77] "Helianthemum alpestre (Jacq.) DC."      mueller_past
+# 
+# [90] "Knautia dipsacifolia Kreutzer"          mueller_2016                              
+# [91] "Knautia dipsacifolia Kreutzer s.l."     mueller_2017
+# 
+# [168] "Senecio rupestris W. et K."            mueller_2016                                  
+# [169] "Senecio rupestris Waldst. & Kit."      mueller_2016 & mueller_past
+
+syrph_dt[plant_sp == "Helianthemum alpestre (jacq.) DC.", 
+         plant_sp := "Helianthemum alpestre (Jacq.) DC."]
+
+syrph_dt[plant_sp == "Knautia dipsacifolia Kreutzer", 
+         plant_sp := "Knautia dipsacifolia Kreutzer s.l."]
+
+syrph_dt[plant_sp == "Senecio rupestris W. et K.", 
+         plant_sp := "Senecio rupestris Waldst. & Kit."]
+
+fwrite(syrph_dt, file = "output/syrphidae_all_data_past&present.csv")
+
 
 # Remove given sites (not enough sampled)
 # -----------------------------------------------------------------------------
@@ -472,7 +504,6 @@ ggsave(filename = "output/histo_altitude_loc5.pdf",
        height = 21, 
        units = "cm")
 
-fwrite(syrph_dt, file = "output/syrph_dt.csv")
 # =============================================================================
 # References
 # =============================================================================

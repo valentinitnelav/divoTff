@@ -35,8 +35,8 @@ sort(unique(syrph_names$syrphidae_sp))
 ### Read historic data
 # -----------------------------------------------------------------------------
 mueller_past <- readxl::read_excel(path = "data/Mueller Plants Pollinators 1874-1879 6weeks _ v20171122.xlsx", 
-                                       sheet = "all data", 
-                                       col_names = TRUE)
+                                   sheet = "all data", 
+                                   col_names = TRUE)
 # The warnings are not affecting current columns of interest
 setDT(mueller_past)
 # Subset
@@ -50,8 +50,8 @@ setnames(x = mueller_past,
 
 # Split altitude range in min & max values & compute average
 mueller_past[, c("alt_min", "alt_max") := tstrsplit(x = altitude_range, 
-                                              split = '-', 
-                                              type.convert = TRUE)]
+                                                    split = '-', 
+                                                    type.convert = TRUE)]
 mueller_past[, altitude_avg :=  rowMeans(.SD, na.rm = TRUE), 
              .SDcols = c("alt_min", "alt_max")]
 
@@ -245,18 +245,24 @@ syrph_dt[, loc_5 := ifelse( (loc_5 %in% sites_2split) &
 # remove NA locations
 syrph_dt <- syrph_dt[!is.na(loc_5)]
 
-loc5sp_mat <- table( syrph_dt[,.(loc_5, insect_sp)] )
+commat_loc5_insects_mat <- table( syrph_dt[,.(loc_5, insect_sp)] )
 
 # for easy visual inspection transform to data.frame object
-loc5sp_df <- as.data.frame.matrix(loc5sp_mat)
+commat_loc5_insects_df <- as.data.frame.matrix(commat_loc5_insects_mat)
 
 # Keep only those locations with at least 5 insect species counts
-# loc5sp_df <- loc5sp_df[rowSums(loc5sp_df) >= 5, ]
+# commat_loc5_insects_df <- commat_loc5_insects_df[rowSums(commat_loc5_insects_df) >= 5, ]
 
 # Keep only those locations with at least 5 different insect species
 # A first test showed that coincidently, this gives identical results as above, 
 # but should not happen always
-# loc5sp_df <- loc5sp_df[rowSums(loc5sp_df != 0) >= 5, ]
+# commat_loc5_insects_df <- commat_loc5_insects_df[rowSums(commat_loc5_insects_df != 0) >= 5, ]
+
+# Create location-by-plant-species matrix
+# -----------------------------------------------------------------------------
+commat_loc5_plants_mat <- table( syrph_dt[,.(loc_5, plant_sp)] )
+commat_loc5_plants_df <- as.data.frame.matrix(commat_loc5_plants_mat)
+
 
 # =============================================================================
 # Run nMDS
@@ -267,13 +273,13 @@ loc5sp_df <- as.data.frame.matrix(loc5sp_mat)
 
 # Bray-Curtis index
 # -------------------------------------
-bray_dist <- vegdist(loc5sp_df, method = "bray")
+bray_dist <- vegdist(commat_loc5_insects_df, method = "bray")
 
 # Jaccard index
 # -------------------------------------
 # "Jaccard index has identical rank order (as Bray-Curtis), but has better metric properties, 
 # and probably should be preferred." (Oksanen, J., 2009)
-jaccard_dist <- vegdist(loc5sp_df, method = "jaccard", binary = TRUE)
+jaccard_dist <- vegdist(commat_loc5_insects_df, method = "jaccard", binary = TRUE)
 # Note that if not mentioning binary = TRUE in vegdist() then "Jaccard index is computed as 2B/(1+B), 
 # where B is Bray-Curtis dissimilarity" (from ?vegdist {vegan})
 # Nevertheless, the binary argument is not mentioned in the help file of metaMDS() nor of monoMDS(), 
@@ -416,11 +422,11 @@ nmds_points <- rbind(nmds_bray_vegan$points,
                      nmds_bray_smacof$conf,
                      nmds_jaccard_smacof$conf)
 nmds_points <- data.table(nmds_points,
-                          id = 1:nrow(loc5sp_df),
-                          loc5 = rownames(loc5sp_df),
-                          package = rep(c("vegan", "smacof"), each = 2* nrow(loc5sp_df)),
+                          id = 1:nrow(commat_loc5_insects_df),
+                          loc5 = rownames(commat_loc5_insects_df),
+                          package = rep(c("vegan", "smacof"), each = 2* nrow(commat_loc5_insects_df)),
                           dist_idx = rep(c("Bray-Curtis", "Jaccard"), 
-                                         each = nrow(loc5sp_df), times = 2))
+                                         each = nrow(commat_loc5_insects_df), times = 2))
 # Merge coordinates with altitude info
 nmds_points <- merge(x = nmds_points,
                      y = aggreg_altitude,

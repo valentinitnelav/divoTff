@@ -1,6 +1,6 @@
 ###############################################################################
-# Script for testing how Syrphidae insect species vary in space
-# Running NMDS on aggregated Syrphidae data
+## Script for testing how Syrphidae insect species vary in space
+## Running NMDS on aggregated Syrphidae data
 ###############################################################################
 
 library(data.table)
@@ -14,10 +14,13 @@ library(MASS)
 library(checkmate)  # was needed by smacof below
 library(smacof)
 
+library(geosphere)
+
 # =============================================================================
 # Read & prepare data
 # =============================================================================
 
+# -----------------------------------------------------------------------------
 ### Read Syrphidae species names
 # -----------------------------------------------------------------------------
 syrph_names <- readxl::read_excel(path = "data/syrphidae3.xlsx", 
@@ -32,6 +35,7 @@ setnames(x = syrph_names,
 # check values
 sort(unique(syrph_names$syrphidae_sp))
 
+# -----------------------------------------------------------------------------
 ### Read historic data
 # -----------------------------------------------------------------------------
 mueller_past <- readxl::read_excel(path = "data/Mueller Plants Pollinators 1874-1879 6weeks _ v20171122.xlsx", 
@@ -52,13 +56,13 @@ setnames(x = mueller_past,
 mueller_past[, c("alt_min", "alt_max") := tstrsplit(x = altitude_range, 
                                                     split = '-', 
                                                     type.convert = TRUE)]
-mueller_past[, altitude_avg :=  rowMeans(.SD, na.rm = TRUE), 
+mueller_past[, altitude_avg_round_100 :=  rowMeans(.SD, na.rm = TRUE), 
              .SDcols = c("alt_min", "alt_max")]
 
 # label all columns with suffix
 setnames(x = mueller_past, paste0(names(mueller_past), "_past"))
 
-
+# -----------------------------------------------------------------------------
 ### Read current data 2016
 # -----------------------------------------------------------------------------
 mueller_2016 <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2016 _ v20171122.xls", 
@@ -69,6 +73,7 @@ setDT(mueller_2016)
 mueller_2016 <- mueller_2016[,.(Site, location, location3, location5, 
                                 insectspecies, Plant)]
 
+# -------------------------------------
 # Merge altitude data with main table
 # -------------------------------------
 mueller_2016_altitude <- readxl::read_excel(path = "data/mueller data 2016_with elevation.xlsx", 
@@ -86,6 +91,7 @@ rm(mueller_2016_altitude)
 # label all columns with suffix
 setnames(x = mueller_2016, paste0(names(mueller_2016), "_2016"))
 
+# -----------------------------------------------------------------------------
 ### Read current data 2017
 # -----------------------------------------------------------------------------
 mueller_2017 <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2017 _ v20171122.xlsx", 
@@ -99,6 +105,7 @@ setnames(x = mueller_2017,
          old = "plant species-correctedWD",
          new = "plant")
 
+# -------------------------------------
 # Merge altitude data with main table
 # -------------------------------------
 mueller_2017_altitude <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2017 _ v20171122.xlsx", 
@@ -112,6 +119,7 @@ mueller_2017 <- merge(x = mueller_2017,
                       all.x = TRUE)
 rm(mueller_2017_altitude)
 
+# -------------------------------------
 # Add location3 info
 # -------------------------------------
 # Read matching location3 estimates for 2017 data
@@ -126,6 +134,7 @@ mueller_2017 <- merge(x = mueller_2017,
                       all.x = TRUE)
 rm(loc3_2017)
 
+# -------------------------------------
 # Add location5 info
 # -------------------------------------
 locations <- mueller_past[, .(location5_past = unique(location5_past)), 
@@ -137,6 +146,7 @@ mueller_2017 <- merge(x = mueller_2017,
                       all.x = TRUE)
 rm(locations)
 
+# -------------------------------------
 # label all columns with suffix
 # -------------------------------------
 setnames(x = mueller_2017, paste0(names(mueller_2017), "_2017"))
@@ -146,17 +156,20 @@ setnames(x = mueller_2017, paste0(names(mueller_2017), "_2017"))
 # Count syrphidae by locations
 # =============================================================================
 
+# -----------------------------------------------------------------------------
 # First prepare table of common column names and then rbind them in a long format
 # -----------------------------------------------------------------------------
 
+# -------------------------------------
 # For past data
 # -------------------------------------
 syrph_past <- mueller_past[insectspecies_past %in% syrph_names[,syrphidae_sp], 
                            .(plant_FH_past, insectspecies_past, 
-                             location5_past, altitude_avg_past)]
+                             location5_past, altitude_avg_round_100_past)]
 setnames(x = syrph_past, c("plant_sp", "insect_sp", "loc_5", "altitude"))
 syrph_past[, period := "mueller_past"]
 
+# -------------------------------------
 # For 2016 data
 # -------------------------------------
 syrph_2016 <- mueller_2016[insectspecies_2016 %in% syrph_names[,syrphidae_sp], 
@@ -164,6 +177,7 @@ syrph_2016 <- mueller_2016[insectspecies_2016 %in% syrph_names[,syrphidae_sp],
 setnames(x = syrph_2016, c("plant_sp", "insect_sp", "loc_5" , "altitude"))
 syrph_2016[, period := "mueller_2016"]
 
+# -------------------------------------
 # For 2017 data
 # -------------------------------------
 syrph_2017 <- mueller_2017[insectspecies_2017 %in% syrph_names[,syrphidae_sp], 
@@ -171,11 +185,12 @@ syrph_2017 <- mueller_2017[insectspecies_2017 %in% syrph_names[,syrphidae_sp],
 setnames(x = syrph_2017, c("plant_sp", "insect_sp", "loc_5", "altitude"))
 syrph_2017[, period := "mueller_2017"]
 
+# -------------------------------------
 # rbind (get the long format)
 # -------------------------------------
 syrph_dt <- rbindlist(list(syrph_past, syrph_2016, syrph_2017))
 
-
+# -------------------------------------
 # check plant species names
 # -------------------------------------
 sort(unique(syrph_dt$plant_sp))
@@ -202,7 +217,7 @@ syrph_dt[plant_sp == "Senecio rupestris W. et K.",
 
 fwrite(syrph_dt, file = "output/syrphidae_all_data_past&present.csv")
 
-
+# -----------------------------------------------------------------------------
 # Remove given sites (not enough sampled)
 # -----------------------------------------------------------------------------
 sort(unique(syrph_dt$loc_5))
@@ -217,6 +232,7 @@ sites_2remove <- c("Agums, Glurns" ,
 syrph_dt <- syrph_dt[!(loc_5 %in% sites_2remove)]
 rm(sites_2remove)
 
+# -----------------------------------------------------------------------------
 # Split given sites by altitude threshold
 # -----------------------------------------------------------------------------
 altit_threshold <- 2500 # altitude to split a site
@@ -239,7 +255,7 @@ syrph_dt[, loc_5 := ifelse( (loc_5 %in% sites_2split) &
 # rm(syrph_past, syrph_2016, syrph_2017, syrph_names,
 #    mueller_past, mueller_2016, mueller_2017)
 
-
+# -----------------------------------------------------------------------------
 # Create location-by-insect-species matrix
 # -----------------------------------------------------------------------------
 # remove NA locations
@@ -258,28 +274,26 @@ commat_loc5_insects_df <- as.data.frame.matrix(commat_loc5_insects_mat)
 # but should not happen always
 # commat_loc5_insects_df <- commat_loc5_insects_df[rowSums(commat_loc5_insects_df != 0) >= 5, ]
 
-# Create location-by-plant-species matrix
-# -----------------------------------------------------------------------------
-commat_loc5_plants_mat <- table( syrph_dt[,.(loc_5, plant_sp)] )
-commat_loc5_plants_df <- as.data.frame.matrix(commat_loc5_plants_mat)
-
 
 # =============================================================================
 # Run nMDS
 # =============================================================================
 
+# -----------------------------------------------------------------------------
 # Compute distances
 # -----------------------------------------------------------------------------
 
+# -------------------------------------
 # Bray-Curtis index
 # -------------------------------------
-bray_dist <- vegdist(commat_loc5_insects_df, method = "bray")
+bray_dist_insects <- vegdist(commat_loc5_insects_df, method = "bray")
 
+# -------------------------------------
 # Jaccard index
 # -------------------------------------
 # "Jaccard index has identical rank order (as Bray-Curtis), but has better metric properties, 
 # and probably should be preferred." (Oksanen, J., 2009)
-jaccard_dist <- vegdist(commat_loc5_insects_df, method = "jaccard", binary = TRUE)
+jaccard_dist_insects <- vegdist(commat_loc5_insects_df, method = "jaccard", binary = TRUE)
 # Note that if not mentioning binary = TRUE in vegdist() then "Jaccard index is computed as 2B/(1+B), 
 # where B is Bray-Curtis dissimilarity" (from ?vegdist {vegan})
 # Nevertheless, the binary argument is not mentioned in the help file of metaMDS() nor of monoMDS(), 
@@ -291,42 +305,47 @@ jaccard_dist <- vegdist(commat_loc5_insects_df, method = "jaccard", binary = TRU
 # https://github.com/vegandevs/vegan/issues/153
 
 
+# -----------------------------------------------------------------------------
 # Run nMDS with vegan, MASS, & smacof packages
 # -----------------------------------------------------------------------------
 
+# -------------------------------------
 # vegan - Bray-Curtis
 # -------------------------------------
 set.seed(2017)
-nmds_bray_vegan <- vegan::metaMDS(comm = bray_dist, k = 2, autotransform = TRUE)
+nmds_bray_vegan <- vegan::metaMDS(comm = bray_dist_insects, k = 2, autotransform = TRUE)
 nmds_bray_vegan # stress is given as proportion from 0 to 1 (from ?metaMDS, section Value)
 # Shepard Diagram
 stressplot(nmds_bray_vegan)
 
+# -------------------------------------
 # vegan - Jaccard
 # -------------------------------------
 set.seed(2017)
-nmds_jaccard_vegan <- vegan::metaMDS(comm = jaccard_dist, k = 2, autotransform = TRUE)
+nmds_jaccard_vegan <- vegan::metaMDS(comm = jaccard_dist_insects, k = 2, autotransform = TRUE)
 nmds_jaccard_vegan
 stressplot(nmds_jaccard_vegan)
 
 # MASS - Bray-Curtis
 # -------------------------------------
 set.seed(2017)
-nmds_bray_MASS <- MASS::isoMDS(d = bray_dist, k = 2)
+nmds_bray_MASS <- MASS::isoMDS(d = bray_dist_insects, k = 2)
 nmds_bray_MASS # stress is given as percent from 0 to 100% (from ?metaMDS, section Value)
 # Shepard Diagram
-stressplot(nmds_bray_MASS, dis = bray_dist)
+stressplot(nmds_bray_MASS, dis = bray_dist_insects)
 
+# -------------------------------------
 # MASS - Jaccard
 # -------------------------------------
-nmds_jaccard_MASS <- MASS::isoMDS(d = jaccard_dist, k = 2)
+nmds_jaccard_MASS <- MASS::isoMDS(d = jaccard_dist_insects, k = 2)
 nmds_jaccard_MASS
-stressplot(nmds_jaccard_MASS, dis = jaccard_dist)
+stressplot(nmds_jaccard_MASS, dis = jaccard_dist_insects)
 
+# -------------------------------------
 # smacof - Bray-Curtis
 # -------------------------------------
 set.seed(2017)
-nmds_bray_smacof <- smacof::mds(delta = bray_dist, type = "ordinal", verbose = TRUE)
+nmds_bray_smacof <- smacof::mds(delta = bray_dist_insects, type = "ordinal", verbose = TRUE)
 nmds_bray_smacof # stress-1 is given as proportion from 0 to 1
 # Shepard Diagram
 plot(nmds_bray_smacof, plot.type = "Shepard")
@@ -339,9 +358,10 @@ cor(x = nmds_bray_smacof$delta,
     method = "spearman")
 1 - nmds_bray_smacof$stress^2 # R^2= 1 - S^2
 
+# -------------------------------------
 # smacof - Jaccard
 # -------------------------------------
-nmds_jaccard_smacof <- smacof::mds(delta = jaccard_dist, type = "ordinal", verbose = TRUE)
+nmds_jaccard_smacof <- smacof::mds(delta = jaccard_dist_insects, type = "ordinal", verbose = TRUE)
 nmds_jaccard_smacof
 plot(nmds_jaccard_smacof, plot.type = "Shepard")
 cor(x = nmds_jaccard_smacof$delta, 
@@ -349,7 +369,7 @@ cor(x = nmds_jaccard_smacof$delta,
     method = "spearman")
 1 - nmds_jaccard_smacof$stress^2 # R^2= 1 - S^2
 
-
+# -------------------------------------
 # NOTE about stress values:
 # -------------------------------------
 # << A large stress value does not necessarily indicate bad fit
@@ -361,11 +381,12 @@ cor(x = nmds_jaccard_smacof$delta,
 # many aspects that need to be considered when judging stress 
 # (see Borg, Groenen, and Mair 2012, for details).>> in Mair (2015).
 
-
+# -----------------------------------------------------------------------------
 # Comparing models with Procrustes rotation
 # -----------------------------------------------------------------------------
 # suggested by Jari Oksanen in Oksanen, J. (2009)
 
+# -------------------------------------
 # Bray-Curtis
 # -------------------------------------
 pro <- vegan::procrustes(nmds_bray_vegan, nmds_bray_MASS)
@@ -395,6 +416,7 @@ plot(pro2)
 # or rotate axis
 plot(smacof::Procrustes(nmds_bray_smacof$conf, nmds_bray_vegan$points))
 
+# -------------------------------------
 # Jaccard
 # -------------------------------------
 plot(vegan::procrustes(nmds_jaccard_vegan, nmds_jaccard_MASS))
@@ -407,13 +429,14 @@ plot(smacof::Procrustes(nmds_jaccard_smacof$conf, nmds_jaccard_vegan$points))
 # Prepare & plot nMDS results
 # =============================================================================
 # Aggregate altitude
-aggreg_altitude <- syrph_dt[, .(altitude_avg = round(mean(altitude, na.rm = TRUE)/100)*100,
+aggreg_altitude <- syrph_dt[, .(altitude_avg_round_100 = round(mean(altitude, na.rm = TRUE)/100)*100,
+                                altitude_avg  = mean(altitude, na.rm = TRUE),
                                 altitue_range = paste0(round(range(altitude, 
                                                                    na.rm = TRUE)/100)*100, 
                                                        collapse = "-")), 
                             by = loc_5]
 # Check unique values
-sort(unique(aggreg_altitude$altitude_avg))
+sort(unique(aggreg_altitude$altitude_avg_round_100))
 sort(unique(aggreg_altitude$altitue_range))
 
 # Prepare data for ggplot
@@ -435,6 +458,7 @@ nmds_points <- merge(x = nmds_points,
                      all.x = TRUE, 
                      sort = FALSE)
 
+# -----------------------------------------------------------------------------
 # Plot nMDS results
 # -----------------------------------------------------------------------------
 pj <- position_jitter(width = 0.01, height = 0.01)
@@ -443,7 +467,7 @@ my_plot <-
   ggplot(data = nmds_points, 
          aes(x = MDS1, 
              y = MDS2)) +
-  geom_point(aes(fill = factor(altitude_avg)),
+  geom_point(aes(fill = factor(altitude_avg_round_100)),
              size = 2, 
              pch = 21,
              position = pj,
@@ -453,7 +477,7 @@ my_plot <-
   #           size = 1,
   #           position = pj) +
   geom_label_repel(aes(label = loc5,
-                       fill = factor(altitude_avg)),
+                       fill = factor(altitude_avg_round_100)),
                    show.legend = TRUE,
                    fontface = 'bold', 
                    color = 'black',
@@ -492,6 +516,7 @@ ggsave(filename = "output/nMDS_loc5.pdf",
        height = 21, 
        units = "cm")
 
+# -----------------------------------------------------------------------------
 # Plot altitude histograms
 # -----------------------------------------------------------------------------
 my_histos <- 
@@ -509,6 +534,102 @@ ggsave(filename = "output/histo_altitude_loc5.pdf",
        width = 29.7, 
        height = 21, 
        units = "cm")
+
+# =============================================================================
+# Exploratory graphs
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
+# vs.
+# Jaccard's similarity in plant community between sites (site's jaccard's index from plant abundances)
+# -----------------------------------------------------------------------------
+
+# Create location-by-plant-species matrix
+commat_loc5_plants_mat <- table( syrph_dt[,.(loc_5, plant_sp)] )
+commat_loc5_plants_df <- as.data.frame.matrix(commat_loc5_plants_mat)
+
+# Jaccard's index from plant abundances per site matrix (above)
+jaccard_dist_plants <- vegdist(commat_loc5_plants_df, method = "jaccard", binary = TRUE)
+
+# my_x <- as.vector(jaccard_dist_plants)
+# attributes(jaccard_dist_plants)$Labels
+# my_x <- as.matrix(jaccard_dist_plants)
+lm_3 <- lm(jaccard_dist_insects ~ jaccard_dist_plants)
+summary(lm_3)
+cor(y = jaccard_dist_insects, x = jaccard_dist_plants)
+plot(x = jaccard_dist_plants, y = jaccard_dist_insects)
+abline(lm_3)
+
+# lm_3_log <- lm(log(jaccard_dist_insects) ~ log(jaccard_dist_plants))
+# plot(x = log(jaccard_dist_plants), y = log(jaccard_dist_insects))
+# abline(lm_3_log)
+
+# -----------------------------------------------------------------------------
+# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
+# vs.
+# Altitude differences between sites
+# -----------------------------------------------------------------------------
+
+site_altitude <- copy(aggreg_altitude)
+setorder(site_altitude, loc_5)
+# identical(attributes(jaccard_dist_plants)$Labels, site_altit$loc_5)
+alt_dif_mat <- outer(X = site_altitude$altitude_avg, 
+                     Y = site_altitude$altitude_avg, 
+                     FUN = "-")
+rownames(alt_dif_mat) <- site_altitude$loc_5
+colnames(alt_dif_mat) <- site_altitude$loc_5
+
+alt_dif <- as.dist(abs(alt_dif_mat), diag = TRUE)
+# attributes(alt_dif)$Labels <- site_altitude$loc_5
+
+plot(x = alt_dif, y = jaccard_dist_insects,
+     xlab = "Altitude differences between sites (m)")
+
+# identify(x = alt_dif, y = jaccard_dist_insects, labels = )
+
+# -----------------------------------------------------------------------------
+# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
+# vs.
+# Distance between sites (km)
+# -----------------------------------------------------------------------------
+
+# -------------------------------------
+# Get coordinates & compute distances
+# -------------------------------------
+# These are coordinates extracted from the KMZ files from Walter Durka.
+wd_coords_dt <- fread("../match_locations/data/Locations_uniq_records_KMZ_coord.csv")
+
+loc5_XY <- merge(x = wd_coords_dt[,.(location3, LonPartialMatch, LatPartialMatch)],
+                 y = unique(mueller_past[,.(location3_past, location5_past)]),
+                 by.x = "location3",
+                 by.y = "location3_past",
+                 all.x = TRUE)
+loc5_XY <- loc5_XY[!is.na(LonPartialMatch)]
+loc5_XY <- loc5_XY[, .(x_avg = mean(LonPartialMatch, na.rm = TRUE),
+                       y_avg = mean(LatPartialMatch, na.rm = TRUE)),
+                   by = location5_past]
+loc5_XY <- loc5_XY[location5_past %in% aggreg_altitude$loc_5]
+
+loc5_XY <- merge(x = unique(syrph_dt[,.(loc_5, loc_5_orig)]),
+                 y = loc5_XY,
+                 by.x = "loc_5_orig", 
+                 by.y = "location5_past", 
+                 all.x = TRUE)
+
+setorder(loc5_XY, loc_5)
+
+# Compute matrix of great circle distances between new sampled sites and old sites
+dist_mat <- geosphere::distm(x = loc5_XY[,.(x_avg, y_avg)],
+                             y = loc5_XY[,.(x_avg, y_avg)],
+                             fun = distHaversine)
+dist_mat <- dist_mat/1000
+rownames(dist_mat) <- loc5_XY$loc_5
+colnames(dist_mat) <- loc5_XY$loc_5
+
+dist_dif <- as.dist(dist_mat, diag = TRUE)
+plot(x = dist_dif, y = jaccard_dist_insects,
+     xlab = "distance between sites (km)")
 
 # =============================================================================
 # References

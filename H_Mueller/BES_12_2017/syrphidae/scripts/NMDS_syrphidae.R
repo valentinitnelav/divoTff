@@ -286,14 +286,14 @@ commat_loc5_insects_df <- as.data.frame.matrix(commat_loc5_insects_mat)
 # -------------------------------------
 # Bray-Curtis index
 # -------------------------------------
-bray_dist_insects <- vegdist(commat_loc5_insects_df, method = "bray")
+bray_dist_insects <-  vegan::vegdist(commat_loc5_insects_df, method = "bray")
 
 # -------------------------------------
 # Jaccard index
 # -------------------------------------
 # "Jaccard index has identical rank order (as Bray-Curtis), but has better metric properties, 
 # and probably should be preferred." (Oksanen, J., 2009)
-jaccard_dist_insects <- vegdist(commat_loc5_insects_df, method = "jaccard", binary = TRUE)
+jaccard_dist_insects <-  vegan::vegdist(commat_loc5_insects_df, method = "jaccard", binary = TRUE)
 # Note that if not mentioning binary = TRUE in vegdist() then "Jaccard index is computed as 2B/(1+B), 
 # where B is Bray-Curtis dissimilarity" (from ?vegdist {vegan})
 # Nevertheless, the binary argument is not mentioned in the help file of metaMDS() nor of monoMDS(), 
@@ -550,11 +550,8 @@ commat_loc5_plants_mat <- table( syrph_dt[,.(loc_5, plant_sp)] )
 commat_loc5_plants_df <- as.data.frame.matrix(commat_loc5_plants_mat)
 
 # Jaccard's index from plant abundances per site matrix (above)
-jaccard_dist_plants <- vegdist(commat_loc5_plants_df, method = "jaccard", binary = TRUE)
+jaccard_dist_plants <- vegan::vegdist(commat_loc5_plants_df, method = "jaccard", binary = TRUE)
 
-# my_x <- as.vector(jaccard_dist_plants)
-# attributes(jaccard_dist_plants)$Labels
-# my_x <- as.matrix(jaccard_dist_plants)
 lm_3 <- lm(jaccard_dist_insects ~ jaccard_dist_plants)
 summary(lm_3)
 cor(y = jaccard_dist_insects, x = jaccard_dist_plants)
@@ -574,19 +571,19 @@ abline(lm_3)
 site_altitude <- copy(aggreg_altitude)
 setorder(site_altitude, loc_5)
 # identical(attributes(jaccard_dist_plants)$Labels, site_altit$loc_5)
+# Compute matrix of pair-wise differences in altitude
 alt_dif_mat <- outer(X = site_altitude$altitude_avg, 
                      Y = site_altitude$altitude_avg, 
                      FUN = "-")
-rownames(alt_dif_mat) <- site_altitude$loc_5
-colnames(alt_dif_mat) <- site_altitude$loc_5
+# row and column names
+dimnames(alt_dif_mat) <- list(site_altitude$loc_5, site_altitude$loc_5)
 
+# transform to class "dist"
 alt_dif <- as.dist(abs(alt_dif_mat), diag = TRUE)
 # attributes(alt_dif)$Labels <- site_altitude$loc_5
 
 plot(x = alt_dif, y = jaccard_dist_insects,
      xlab = "Altitude differences between sites (m)")
-
-# identify(x = alt_dif, y = jaccard_dist_insects, labels = )
 
 # -----------------------------------------------------------------------------
 # Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
@@ -624,8 +621,8 @@ dist_mat <- geosphere::distm(x = loc5_XY[,.(x_avg, y_avg)],
                              y = loc5_XY[,.(x_avg, y_avg)],
                              fun = distHaversine)
 dist_mat <- dist_mat/1000
-rownames(dist_mat) <- loc5_XY$loc_5
-colnames(dist_mat) <- loc5_XY$loc_5
+# row and column names
+dimnames(dist_mat) <- list(loc5_XY$loc_5, loc5_XY$loc_5)
 
 dist_dif <- as.dist(dist_mat, diag = TRUE)
 plot(x = dist_dif, y = jaccard_dist_insects,

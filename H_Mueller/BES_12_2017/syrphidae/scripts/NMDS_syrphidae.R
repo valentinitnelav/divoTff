@@ -34,13 +34,16 @@ setDT(syrph_names)
 # rename columns so not to have spaces in column names
 setnames(x = syrph_names, 
          old = "name for analysis",
-         new = "syrphidae_sp")
+         new = "syrphidae_analysis")
+# check for typos
+syrphidae_names_analysis <- sort(unique(syrph_names$syrphidae_analysis))
+cat(syrphidae_names_analysis, sep = "\n") # print each species name on a separate line
 
 # =============================================================================
 # Prepare data
 # =============================================================================
 # Select only syrphidae
-syrph_dt <- mueller_all[insect_sp %in% syrph_names$syrphidae_sp]
+syrph_dt <- mueller_all[insect_sp %in% syrphidae_names_analysis]
 
 # -------------------------------------
 # Plot altitude histograms
@@ -49,14 +52,16 @@ my_histos <-
   ggplot(data = syrph_dt,
          aes(altitude)) +
   geom_histogram() +
-  geom_vline(xintercept = 2500) + 
+  geom_vline(xintercept = 2500, 
+             color = "red",
+             linetype = "dashed") + 
   facet_wrap(~loc_5) +
   theme_bw() +
   # edit strip text for each panel
   theme(strip.text = element_text(size = 8, 
                                   face = "bold"))
 
-ggsave(filename = "output/histo_altitude_loc5.pdf", 
+ggsave(filename = "output/syrphidae_loc5_histogram_altitude.pdf", 
        plot = my_histos, 
        width = 29.7, 
        height = 21, 
@@ -197,6 +202,7 @@ stressplot(nmds_jaccard_vegan)
 # -------------------------------------
 # MASS - Jaccard
 # -------------------------------------
+set.seed(2017)
 nmds_jaccard_MASS <- MASS::isoMDS(d = jaccard_dist_insects, k = 2)
 nmds_jaccard_MASS
 stressplot(nmds_jaccard_MASS, dis = jaccard_dist_insects)
@@ -204,6 +210,7 @@ stressplot(nmds_jaccard_MASS, dis = jaccard_dist_insects)
 # -------------------------------------
 # smacof - Jaccard
 # -------------------------------------
+set.seed(2017)
 nmds_jaccard_smacof <- smacof::mds(delta = jaccard_dist_insects, type = "ordinal", verbose = TRUE)
 nmds_jaccard_smacof # stress-1 is given as proportion from 0 to 1
 # Shepard Diagram
@@ -301,7 +308,7 @@ my_plot <-
   ggplot(data = nmds_points, 
          aes(x = MDS1, 
              y = MDS2)) +
-  geom_point(aes(fill = factor(altitude_avg_round_100)),
+  geom_point(aes(fill = factor(altitude_gr)), # altitude_gr or altitude_avg_round_100
              size = 2, 
              pch = 21,
              position = pj,
@@ -311,7 +318,7 @@ my_plot <-
   #           size = 1,
   #           position = pj) +
   geom_label_repel(aes(label = loc_5,
-                       fill = factor(altitude_avg_round_100)),
+                       fill = factor(altitude_gr)), # altitude_gr or altitude_avg_round_100
                    show.legend = TRUE,
                    fontface = 'bold', 
                    color = 'black',
@@ -344,7 +351,7 @@ my_plot <-
              scales = "free", 
              labeller = label_both)
 # my_plot
-ggsave(filename = "output/nMDS_loc5.pdf", 
+ggsave(filename = "output/syrphidae_loc5_NMDS_plot_altitude_groups.pdf", # syrphidae_loc5_NMDS_plot.pdf or syrphidae_loc5_NMDS_plot_altitude_groups.pdf
        plot = my_plot, 
        width = 29.7, 
        height = 15, 
@@ -357,35 +364,98 @@ ggsave(filename = "output/nMDS_loc5.pdf",
 # -----------------------------------------------------------------------------
 # Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
 # vs.
-# Jaccard's similarity in plant community between sites (site's jaccard's index from plant abundances)
+# Distance between sites (km)
 # -----------------------------------------------------------------------------
+loc5_XY <- unique(syrph_dt[,.(loc_5, x_loc_5, y_loc_5)], by = "loc_5")
+# It is very important to set order the same as in other "dist" objects:
+setorder(loc5_XY, loc_5)
+identical(attributes(jaccard_dist_insects)$Labels, loc5_XY$loc_5) # should be TRUE
 
-# Create location-by-plant-species matrix
-commat_loc5_plants_mat <- table( syrph_dt[,.(loc_5, plant_sp)] )
-commat_loc5_plants_df <- as.data.frame.matrix(commat_loc5_plants_mat)
+# Compute matrix of great circle distances between new sampled sites and old sites
+dist_mat <- geosphere::distm(x = loc5_XY[,.(x_loc_5, y_loc_5)],
+                             y = loc5_XY[,.(x_loc_5, y_loc_5)],
+                             fun = distHaversine)
+dist_mat <- dist_mat/1000
+# row and column names
+dimnames(dist_mat) <- list(loc5_XY$loc_5, loc5_XY$loc_5)
 
-# Jaccard's index from plant abundances per site matrix (above)
-jaccard_dist_plants <- vegan::vegdist(commat_loc5_plants_df, method = "jaccard", binary = TRUE)
+# transform to class "dist"
+dist_km <- as.dist(dist_mat, diag = TRUE)
+# diag = TRUE is just for printing reasons
+identical(attributes(jaccard_dist_insects)$Labels,
+          attributes(dist_km)$Labels) # should be TRUE
 
-lm_3 <- lm(jaccard_dist_insects ~ jaccard_dist_plants)
-summary(lm_3)
-cor(y = jaccard_dist_insects, x = jaccard_dist_plants)
-plot(x = jaccard_dist_plants, y = jaccard_dist_insects)
-abline(lm_3)
+summary(lm(jaccard_dist_insects ~ dist_km))
 
-# lm_3_log <- lm(log(jaccard_dist_insects) ~ log(jaccard_dist_plants))
-# plot(x = log(jaccard_dist_plants), y = log(jaccard_dist_insects))
-# abline(lm_3_log)
+plot(jaccard_dist_insects ~ dist_km,
+     xlab = "Distance between sites (km)")
+abline(lm(jaccard_dist_insects ~ dist_km))
+
+# -----------------------------------------------------------------------------
+# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
+# vs.
+# Latitude differences between sites
+# -----------------------------------------------------------------------------
+# Trials with Eckert IV projection gave same results as unprojected coordinates
+# library(rgdal)
+# # give the PORJ.4 string for Eckert IV projection
+# PROJ <- "+proj=eck4 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs" 
+# # project coordinates
+# # assign matrix of projected coordinates as two columns in data table
+# loc5_XY[, c("X","Y") := data.table(project(cbind(x_loc_5, y_loc_5), proj=PROJ))]
+
+# Compute matrix of pair-wise differences in latitude
+latitude_dif_mat <- outer(X = loc5_XY$y_loc_5, 
+                          Y = loc5_XY$y_loc_5, 
+                          FUN = "-")
+# row and column names
+dimnames(latitude_dif_mat) <- list(loc5_XY$loc_5, loc5_XY$loc_5)
+
+# transform to class "dist"
+latitude_dif <- as.dist(abs(latitude_dif_mat), diag = TRUE)
+# diag = TRUE is just for printing reasons
+identical(attributes(jaccard_dist_insects)$Labels,
+          attributes(latitude_dif)$Labels) # should be TRUE
+
+summary(lm(jaccard_dist_insects ~ latitude_dif))
+
+plot(jaccard_dist_insects ~ latitude_dif,
+     xlab = "Differences in latitude between sites (degrees)")
+abline(lm(jaccard_dist_insects ~ latitude_dif))
+
+# -----------------------------------------------------------------------------
+# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
+# vs.
+# Longitude differences between sites
+# -----------------------------------------------------------------------------
+# Compute matrix of pair-wise differences in latitude
+longitude_dif_mat <- outer(X = loc5_XY$x_loc_5, 
+                           Y = loc5_XY$x_loc_5, 
+                           FUN = "-")
+# row and column names
+dimnames(longitude_dif_mat) <- list(loc5_XY$loc_5, loc5_XY$loc_5)
+
+# transform to class "dist"
+longitude_dif <- as.dist(abs(longitude_dif_mat), diag = TRUE)
+# diag = TRUE is just for printing reasons
+identical(attributes(jaccard_dist_insects)$Labels,
+          attributes(longitude_dif)$Labels) # should be TRUE
+
+summary(lm(jaccard_dist_insects ~ longitude_dif))
+
+plot(jaccard_dist_insects ~ longitude_dif,
+     xlab = "Differences in longitude between sites (degrees)")
+abline(lm(jaccard_dist_insects ~ longitude_dif))
 
 # -----------------------------------------------------------------------------
 # Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
 # vs.
 # Altitude differences between sites
 # -----------------------------------------------------------------------------
-
 site_altitude <- copy(aggreg_altitude)
 setorder(site_altitude, loc_5)
 # identical(attributes(jaccard_dist_plants)$Labels, site_altit$loc_5)
+
 # Compute matrix of pair-wise differences in altitude
 alt_dif_mat <- outer(X = site_altitude$altitude_avg, 
                      Y = site_altitude$altitude_avg, 
@@ -397,61 +467,71 @@ dimnames(alt_dif_mat) <- list(site_altitude$loc_5, site_altitude$loc_5)
 alt_dif <- as.dist(abs(alt_dif_mat), diag = TRUE)
 # attributes(alt_dif)$Labels <- site_altitude$loc_5
 
-plot(x = alt_dif, y = jaccard_dist_insects,
+summary(lm(jaccard_dist_insects ~ alt_dif))
+
+plot(jaccard_dist_insects ~ alt_dif,
      xlab = "Altitude differences between sites (m)")
 abline(lm(jaccard_dist_insects ~ alt_dif))
-
-# -----------------------------------------------------------------------------
-# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
-# vs.
-# Distance between sites (km)
-# -----------------------------------------------------------------------------
-
-loc5_XY <- unique(syrph_dt[,.(loc_5, x_loc_5, y_loc_5)], by = "loc_5")
-
-# Compute matrix of great circle distances between new sampled sites and old sites
-dist_mat <- geosphere::distm(x = loc5_XY[,.(x_loc_5, y_loc_5)],
-                             y = loc5_XY[,.(x_loc_5, y_loc_5)],
-                             fun = distHaversine)
-dist_mat <- dist_mat/1000
-# row and column names
-dimnames(dist_mat) <- list(loc5_XY$loc_5, loc5_XY$loc_5)
-
-dist_km <- as.dist(dist_mat, diag = TRUE)
-plot(x = dist_km, y = jaccard_dist_insects,
-     xlab = "Distance between sites (km)")
-abline(lm(jaccard_dist_insects ~ dist_km))
 
 # -----------------------------------------------------------------------------
 # Jaccard's similarity in plant community between sites (site's jaccard's index from plant abundances)
 # vs.
 # Altitude differences between sites
 # -----------------------------------------------------------------------------
-plot(x = alt_dif, y = jaccard_dist_plants,
+# Create location-by-plant-species matrix
+commat_loc5_plants_mat <- table( syrph_dt[,.(loc_5, plant_sp)] )
+commat_loc5_plants_df <- as.data.frame.matrix(commat_loc5_plants_mat)
+
+# Jaccard's index from plant abundances per site matrix (above)
+jaccard_dist_plants <- vegan::vegdist(commat_loc5_plants_df, method = "jaccard", binary = TRUE)
+
+summary(lm(jaccard_dist_plants ~ alt_dif))
+
+plot(jaccard_dist_plants ~ alt_dif,
      xlab = "Altitude differences between sites (m)")
 abline(lm(jaccard_dist_plants ~ alt_dif))
+
+# -----------------------------------------------------------------------------
+# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
+# vs.
+# Jaccard's similarity in plant community between sites (site's jaccard's index from plant abundances)
+# -----------------------------------------------------------------------------
+
+summary(lm(jaccard_dist_insects ~ jaccard_dist_plants))
+cor(x = jaccard_dist_plants, y = jaccard_dist_insects)
+
+plot(jaccard_dist_insects ~ jaccard_dist_plants)
+abline(lm(jaccard_dist_insects ~ jaccard_dist_plants))
 
 # -----------------------------------------------------------------------------
 # Plot all in one PDF file
 # -----------------------------------------------------------------------------
-pdf(file = "output/exploratory_graphs_sryphidae.pdf",
+pdf(file = "output/sryphidae_loc5_exploratory_graphs.pdf",
     width = 15/2.54, height = 12/2.54, 
     family = "Times", pointsize = 14)
 
-plot(x = jaccard_dist_plants, y = jaccard_dist_insects)
-abline(lm(jaccard_dist_insects ~ jaccard_dist_plants))
-
-plot(x = alt_dif, y = jaccard_dist_insects,
-     xlab = "Altitude differences between sites (m)")
-abline(lm(jaccard_dist_insects ~ alt_dif))
-
-plot(x = dist_km, y = jaccard_dist_insects,
+plot(jaccard_dist_insects ~ dist_km,
      xlab = "Distance between sites (km)")
 abline(lm(jaccard_dist_insects ~ dist_km))
 
-plot(x = alt_dif, y = jaccard_dist_plants,
+plot(jaccard_dist_insects ~ latitude_dif,
+     xlab = "Differences in latitude between sites (degrees)")
+abline(lm(jaccard_dist_insects ~ latitude_dif))
+
+plot(jaccard_dist_insects ~ longitude_dif,
+     xlab = "Differences in longitude between sites (degrees)")
+abline(lm(jaccard_dist_insects ~ longitude_dif))
+
+plot(jaccard_dist_insects ~ alt_dif,
+     xlab = "Altitude differences between sites (m)")
+abline(lm(jaccard_dist_insects ~ alt_dif))
+
+plot(jaccard_dist_plants ~ alt_dif,
      xlab = "Altitude differences between sites (m)")
 abline(lm(jaccard_dist_plants ~ alt_dif))
+
+plot(jaccard_dist_insects ~ jaccard_dist_plants)
+abline(lm(jaccard_dist_insects ~ jaccard_dist_plants))
 
 # close the device
 dev.off()

@@ -15,7 +15,8 @@ setDT(mueller_past)
 # Subset
 mueller_past <- mueller_past[,.(year, altitude_mean_rounded,
                                 location3, location5,
-                                insectspecies, `new plant species (FH)`)]
+                                insectspecies, InsectOrderNew_WD,
+                                `new plant species (FH)`)]
 
 # =============================================================================
 # Read current data 2016
@@ -26,7 +27,7 @@ mueller_2016 <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2016 
 setDT(mueller_2016)
 # Subset
 mueller_2016 <- mueller_2016[,.(Site, location, location3, location5, 
-                                insectspecies, Plant)]
+                                insectspecies, Order, Plant)]
 
 # -------------------------------------
 # Merge altitude data with main table
@@ -51,7 +52,7 @@ mueller_2017 <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2017 
                                    col_names = TRUE)
 setDT(mueller_2017)
 # Subset
-mueller_2017 <- mueller_2017[,.(Site, insectspecies, `plant species-correctedWD`)]
+mueller_2017 <- mueller_2017[,.(Site, insectspecies, `insect order`, `plant species-correctedWD`)]
 
 # -------------------------------------
 # Merge altitude data with main table
@@ -120,6 +121,7 @@ mueller_all <-
                          altitude_mean_rounded, 
                          `new plant species (FH)`, 
                          insectspecies,
+                         InsectOrderNew_WD,
                          site)], 
          mueller_2016[,.(period,
                          year,
@@ -128,6 +130,7 @@ mueller_all <-
                          `elevation (m)`,
                          Plant,
                          insectspecies,
+                         Order,
                          Site)], 
          mueller_2017[,.(period,
                          year,
@@ -136,11 +139,13 @@ mueller_all <-
                          elevation,
                          `plant species-correctedWD`,
                          insectspecies,
+                         `insect order`,
                          Site)]))
 
 setnames(x = mueller_all, 
-         old = c("location3", "location5", "altitude_mean_rounded", "new plant species (FH)", "insectspecies"),
-         new = c("loc_3", "loc_5", "altitude", "plant_sp", "insect_sp"))
+         old = c("location3", "location5", "altitude_mean_rounded", 
+                 "new plant species (FH)", "insectspecies", "InsectOrderNew_WD"),
+         new = c("loc_3", "loc_5", "altitude", "plant_sp", "insect_sp", "insect_order"))
 
 mueller_all[, loc_3_umlaut := loc_3]
 mueller_all[, loc_3 := gsub(pattern = "ä", replacement = "ae", x = loc_3)]
@@ -192,7 +197,7 @@ setcolorder(x = mueller_all,
                          "loc_5", "loc_5_umlaut", "x_loc_5", "y_loc_5",
                          "loc_3", "loc_3_umlaut", "x_loc_3", "y_loc_3",
                          "site", "altitude",
-                         "plant_sp", "insect_sp"))
+                         "plant_sp", "insect_sp", "insect_order"))
 
 write.csv(mueller_all, "output/mueller_all.csv", row.names = FALSE)
 

@@ -5,7 +5,8 @@
 
 library(data.table)
 library(ggplot2)
-library(ggrepel)    # for geom_text_repel() - repel overlapping text labels
+library(writexl)
+library(gplots) # for plotting text
 
 # packages for running nMDS:
 library(vegan)
@@ -13,9 +14,15 @@ library(checkmate)  # was needed by smacof below
 library(smacof)
 
 
-
-syrphidae <- data.table(read.csv("output/syrphidae_selected_sites_past&present.csv", 
+# =============================================================================
+# Prepare & plot nMDS results
+# =============================================================================
+syrphidae <- data.table(read.csv("output/syrphidae/syrphidae_selected_sites_past&present.csv", 
                                  stringsAsFactors = FALSE))
+
+# remove 1879 & 1878
+syrphidae <- syrphidae[!(year %in% c(1878, 1879))]
+
 
 commat_year_insects_mat <- table( syrphidae[,.(year, insect_sp)] )
 # for easy visual inspection transform to data.frame object
@@ -32,7 +39,7 @@ nmds_jaccard_vegan # stress is given as proportion from 0 to 1 (from ?metaMDS, s
 stressplot(nmds_jaccard_vegan)
 
 set.seed(2017)
-nmds_jaccard_smacof <- smacof::mds(delta = jaccard_dist_insects, type = "ordinal", verbose = TRUE)
+nmds_jaccard_smacof <- smacof::mds(delta = jaccard_dist_insects, type = "ordinal")
 nmds_jaccard_smacof # stress-1 is given as proportion from 0 to 1
 # Shepard Diagram
 plot(nmds_jaccard_smacof, plot.type = "Shepard")
@@ -60,7 +67,6 @@ nmds_points <- data.table(nmds_points,
 # Plot nMDS results
 # -----------------------------------------------------------------------------
 pj <- position_jitter(width = 0.05, height = 0.0025)
-set.seed(66)
 
 my_plot <- 
   ggplot(data = nmds_points, 
@@ -81,14 +87,16 @@ my_plot <-
   facet_wrap(package ~ dist_idx, 
              scales = "free", 
              labeller = label_both)
-# my_plot
-ggsave(filename = "output/NMDS_year.pdf", 
+
+ggsave(filename = "output/syrphidae/syrphidae_year_NMDS_plot.pdf", 
        plot = my_plot, 
        width = 29.7, 
        height = 15, 
        units = "cm")
 
-# -----------------------------------------------------------------------------
+# =============================================================================
+# Exploratory graphs
+# =============================================================================
 commat_year_plants_mat <- table( syrphidae[,.(year, plant_sp)] )
 # for easy visual inspection transform to data.frame object
 commat_year_plants_df <- as.data.frame.matrix(commat_year_plants_mat)
@@ -97,18 +105,25 @@ jaccard_dist_plants <- vegan::vegdist(commat_year_plants_df,
                                        method = "jaccard", 
                                        binary = TRUE)
 
-pdf(file = "output/exploratory_graph_sryphidae_year_Jaccard_insects_plants.pdf",
+pdf(file = "output/syrphidae/syrphidae_year_Jaccard_insects_vs_plants.pdf",
     width = 15/2.54, height = 12/2.54, 
     family = "Times", pointsize = 14)
+
 plot(jaccard_dist_insects ~ jaccard_dist_plants,
      main = "Years: Jaccard distances, insects vs. plants")
 abline(lm(jaccard_dist_insects ~ jaccard_dist_plants))
+gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ jaccard_dist_plants))),
+                 cex = 0.4) 
+
 # close the device
 dev.off()
 
-# -----------------------------------------------------------------------------
-# syrphidae[, .N, by = c("loc_5", "year")]
+# =============================================================================
+# Aggregation by loc_5 and year
+# =============================================================================
+syrphidae_loc5_year_counts <- syrphidae[, .N, by = c("loc_5", "year")]
+writexl::write_xlsx(syrphidae_loc5_year_counts, path = "output/syrphidae/syrphidae_loc5_year_counts.xlsx")
 
-loc5_yr <- syrphidae[, .(years = paste(unique(year), collapse = ";"),
-                         count_years = uniqueN(year)), by = loc_5]
-write.csv(loc5_yr, "output/syrphidae_count_years_by_loc5.csv", row.names= FALSE)
+# write.csv(syrphidae_loc5_year_counts, 
+#           file = "output/syrphidae/syrphidae_loc5_year_counts.csv", 
+#           row.names= FALSE)

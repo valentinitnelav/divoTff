@@ -26,24 +26,28 @@ syrphidae[is.na(loc_5)]
 # syrphidae <- syrphidae[!is.na(loc_5)]
 
 ########################################
-# change here for subsetting
-my_sp_short_name <- "Thymus"
-syrph_subst <- syrphidae[plant_sp == "Thymus serpyllum aggr."]
+# NOTE: Change here for subsetting:
+# First choose Thymus case and then run all remaining code after this section.
+syrph_subst <- syrphidae[plant_sp == "Thymus serpyllum aggr."]; my_folder <- "Thymus"
+# When you run the line above, skip the one line below for Carduus below and 
+# jump directly next section ("Plot altitude histograms")
 
-my_sp_short_name <- "Carduus"
-syrph_subst <- syrphidae[plant_sp == "Carduus defloratus L. s.l."]
+# Then return here and re-run for Carduus case
+syrph_subst <- syrphidae[plant_sp == "Carduus defloratus L. s.l."]; my_folder <- "Carduus"
 ########################################
 
 # -------------------------------------
 # Plot altitude histograms
 # -------------------------------------
+# load helper function
 source("scripts/helpers/altitude_histogram_panel.R")
+
 my_histos <- altitude_histogram_panel(data = syrph_subst, 
                                       varb = "altitude", 
                                       wrap_varb = "loc_5", 
                                       xintercept = 2500)
 
-ggsave(filename = paste0("output/syrphidae/", my_sp_short_name, "/", my_sp_short_name,
+ggsave(filename = paste0("output/syrphidae/", my_folder, "/", my_folder,
                          "_syrphidae_loc5_histogram_altitude.pdf"), 
        plot = my_histos, 
        width = 29.7, 
@@ -126,8 +130,8 @@ nmds_plot <- plot_nmds(nmds_xy = nmds_points,
                        expand_y = c(0.5, 0)) # passed to scale_y_continuous()
 
 set.seed(66)
-ggsave(filename = paste0("output/syrphidae/", my_sp_short_name, "/",
-                         my_sp_short_name,
+ggsave(filename = paste0("output/syrphidae/", my_folder, "/",
+                         my_folder,
                          "_syrphidae_loc5_NMDS_plot_altitude.pdf"), 
        # syrphidae_loc5_NMDS_plot.pdf or syrphidae_loc5_NMDS_plot_altitude_groups.pdf
        plot = nmds_plot, 
@@ -246,8 +250,8 @@ abline(lm(jaccard_dist_insects ~ alt_dif))
 # -----------------------------------------------------------------------------
 # Plot all in one PDF file
 # -----------------------------------------------------------------------------
-pdf(file = paste0("output/syrphidae/", my_sp_short_name, "/",
-                  my_sp_short_name,
+pdf(file = paste0("output/syrphidae/", my_folder, "/",
+                  my_folder,
                   "_syrphidae_loc5_exploratory_graphs.pdf"),
     width = 15/2.54, height = 12/2.54, 
     family = "Times", pointsize = 14)

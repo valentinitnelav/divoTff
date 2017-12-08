@@ -5,6 +5,7 @@
 
 library(data.table)
 library(readxl)
+library(writexl)
 library(ggplot2)
 library(ggrepel)    # for geom_text_repel() - repel overlapping text labels
 
@@ -24,45 +25,11 @@ library(geosphere)
 # -------------------------------------
 mueller_all <- data.table(read.csv("output/mueller_all.csv", stringsAsFactors = FALSE))
 
-# -------------------------------------
-# Read Syrphidae species names
-# -------------------------------------
-syrph_names <- readxl::read_excel(path = "data/syrphidae3.xlsx", 
-                                  sheet = "species names for analysis", 
-                                  col_names = TRUE)
-setDT(syrph_names)
-# rename columns so not to have spaces in column names
-setnames(x = syrph_names, 
-         old = "name for analysis",
-         new = "syrphidae_analysis")
-
-# check for typos
-sort(unique(syrph_names$syrphidae_analysis))
-# print each species name on a separate line
-cat(sort(unique(syrph_names$syrphidae_analysis)), sep = "\n") 
-
-# check duplicates by Syrphidae_species 
-syrph_names[duplicated(syrph_names, by = "Syrphidae_species")]
-# 1: Cheilosia caerulescens     old Cheilosia caerulescens
-
-# remove the duplicates
-syrph_names <- syrph_names[!duplicated(syrph_names, by = "Syrphidae_species")]
-
-
 # =============================================================================
 # Prepare data
 # =============================================================================
 # Select only syrphidae
-syrph_dt <- mueller_all[insect_sp %in% syrph_names$Syrphidae_species]
-# syrph_dt[, insect_sp_orig := insect_sp]
-
-# Attach column with insect species names for analysis
-syrph_dt <- merge(x = syrph_dt,
-                  y = syrph_names,
-                  by.x = "insect_sp",
-                  by.y = "Syrphidae_species",
-                  all.x = TRUE,
-                  sort = FALSE)
+syrph_dt <- mueller_all[group_for_analysis == "syrphidae"]
 
 # -------------------------------------
 # Plot altitude histograms
@@ -73,7 +40,7 @@ my_histos <- altitude_histogram_panel(data = syrph_dt,
                                       wrap_varb = "loc_5", 
                                       xintercept = 2500)
 
-ggsave(filename = "output/syrphidae_loc5_histogram_altitude.pdf", 
+ggsave(filename = "output/syrphidae/syrphidae_loc5_histogram_altitude.pdf", 
        plot = my_histos, 
        width = 29.7, 
        height = 21, 
@@ -108,7 +75,7 @@ syrph_dt[plant_sp == "Senecio rupestris W. et K.",
          plant_sp := "Senecio rupestris Waldst. & Kit."]
 
 write.csv(syrph_dt, 
-          file = "output/syrphidae_all_data_past&present.csv", 
+          file = "output/syrphidae/syrphidae_all_data_past&present.csv", 
           row.names = FALSE)
 
 # -------------------------------------
@@ -151,18 +118,20 @@ syrph_dt[, loc_5 := ifelse( (loc_5 %in% sites_2split) &
                             no = loc_5 )]
 
 write.csv(syrph_dt, 
-          file = "output/syrphidae_selected_sites_past&present.csv", 
+          file = "output/syrphidae/syrphidae_selected_sites_past&present.csv", 
           row.names = FALSE)
+writexl::write_xlsx(syrph_dt, 
+                    path = "output/syrphidae/syrphidae_selected_sites_past&present.xlsx")
 
 # remove objects that are not needed
-rm(sites_2split, altit_threshold, syrph_names)
+rm(sites_2split, altit_threshold)
 
 # =============================================================================
 # Create location-by-insect-species matrix
 # =============================================================================
-# remove NA locations ( 10 records)
+# check for NA locations
 syrph_dt[is.na(loc_5)]
-syrph_dt <- syrph_dt[!is.na(loc_5)]
+# syrph_dt <- syrph_dt[!is.na(loc_5)]
 
 commat_loc5_insects_mat <- table( syrph_dt[,.(loc_5, insect_sp)] )
 
@@ -315,57 +284,21 @@ nmds_points <- merge(x = nmds_points,
 # -----------------------------------------------------------------------------
 # Plot nMDS results
 # -----------------------------------------------------------------------------
-pj <- position_jitter(width = 0.01, height = 0.01)
+source("scripts/helpers/plot_nmds.R")
+
+str(nmds_points)
+nmds_points[, altitude_avg_round_100 := factor(altitude_avg_round_100)]
+
+nmds_plot <- plot_nmds(nmds_xy = nmds_points,
+                       label_varb = "loc_5",
+                       fill_varb = "altitude_gr",
+                       pj = position_jitter(width = 0.01, height = 0.01),
+                       expand_x = c(0.5, 0), # passed to scale_x_continuous()
+                       expand_y = c(0.5, 0)) # passed to scale_y_continuous()
+
 set.seed(66)
-my_plot <- 
-  ggplot(data = nmds_points, 
-         aes(x = MDS1, 
-             y = MDS2)) +
-  geom_point(aes(fill = factor(altitude_gr)), # altitude_gr or altitude_avg_round_100
-             size = 2, 
-             pch = 21,
-             position = pj,
-             show.legend = FALSE) +
-  # geom_text(aes(label = loc5),
-  #           vjust = 1,
-  #           size = 1,
-  #           position = pj) +
-  geom_label_repel(aes(label = loc_5,
-                       fill = factor(altitude_gr)), # altitude_gr or altitude_avg_round_100
-                   show.legend = TRUE,
-                   fontface = 'bold', 
-                   color = 'black',
-                   # Add extra padding around each text label.
-                   box.padding = 0.6,
-                   # Add extra padding around each data point.
-                   point.padding = 0.2,
-                   # label size
-                   size = 1.7,
-                   alpha = 0.6,
-                   # Color of the line segments.
-                   segment.color = '#cccccc',
-                   # line segment transparency
-                   segment.alpha = .6,
-                   # line segment thickness
-                   segment.size = .25,
-                   # the force of repulsion between overlapping text labels
-                   force = 50,
-                   # maximum number of iterations to attempt to resolve overlaps
-                   max.iter = 10e4,
-                   min.segment.length = 0.01,
-                   seed = 2017) +
-  # Adjust the distance (gap) from axis
-  scale_x_continuous(expand = c(0.5, 0)) +
-  scale_y_continuous(expand = c(0.5, 0)) +
-  labs(fill = 'Average altitude (m)') +
-  theme_bw() +
-  theme(panel.grid = element_blank()) +
-  facet_wrap(package ~ dist_idx, 
-             scales = "free", 
-             labeller = label_both)
-# my_plot
-ggsave(filename = "output/syrphidae_loc5_NMDS_plot_altitude_groups.pdf", # syrphidae_loc5_NMDS_plot.pdf or syrphidae_loc5_NMDS_plot_altitude_groups.pdf
-       plot = my_plot, 
+ggsave(filename = "output/syrphidae/syrphidae_loc5_NMDS_plot_altitude.pdf",
+       plot = nmds_plot, 
        width = 29.7, 
        height = 15, 
        units = "cm")
@@ -519,32 +452,47 @@ abline(lm(jaccard_dist_insects ~ jaccard_dist_plants))
 # -----------------------------------------------------------------------------
 # Plot all in one PDF file
 # -----------------------------------------------------------------------------
-pdf(file = "output/sryphidae_loc5_exploratory_graphs.pdf",
+# install.packages("gplots")
+library(gplots)
+
+pdf(file = "output/syrphidae/syrphidae_loc5_exploratory_graphs.pdf",
     width = 15/2.54, height = 12/2.54, 
     family = "Times", pointsize = 14)
 
 plot(jaccard_dist_insects ~ dist_km,
      xlab = "Distance between sites (km)")
 abline(lm(jaccard_dist_insects ~ dist_km))
+gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ dist_km))),
+                 cex = 0.4) 
 
 plot(jaccard_dist_insects ~ latitude_dif,
      xlab = "Differences in latitude between sites (degrees)")
 abline(lm(jaccard_dist_insects ~ latitude_dif))
+gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ latitude_dif))),
+                 cex = 0.4) 
 
 plot(jaccard_dist_insects ~ longitude_dif,
      xlab = "Differences in longitude between sites (degrees)")
 abline(lm(jaccard_dist_insects ~ longitude_dif))
+gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ longitude_dif))),
+                 cex = 0.4) 
 
 plot(jaccard_dist_insects ~ alt_dif,
      xlab = "Altitude differences between sites (m)")
 abline(lm(jaccard_dist_insects ~ alt_dif))
+gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ alt_dif))),
+                 cex = 0.4) 
 
 plot(jaccard_dist_plants ~ alt_dif,
      xlab = "Altitude differences between sites (m)")
 abline(lm(jaccard_dist_plants ~ alt_dif))
+gplots::textplot(object = capture.output(summary(lm(jaccard_dist_plants ~ alt_dif))),
+                 cex = 0.4) 
 
 plot(jaccard_dist_insects ~ jaccard_dist_plants)
 abline(lm(jaccard_dist_insects ~ jaccard_dist_plants))
+gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ jaccard_dist_plants))),
+                 cex = 0.4) 
 
 # close the device
 dev.off()

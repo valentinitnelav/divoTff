@@ -237,19 +237,119 @@ mueller_all <- merge(x = mueller_all,
 mueller_all[, x_loc_5 := mean(unique(x_loc_3), na.rm = TRUE), by = loc_5]
 mueller_all[, y_loc_5 := mean(unique(y_loc_3), na.rm = TRUE), by = loc_5]
 
+rm(loc3_wd_coords)
+
+# =============================================================================
+# Harmonize insect species names
+# =============================================================================
+# -------------------------------------
+# Read Syrphidae species names
+# -------------------------------------
+names_syrph <- readxl::read_excel(path = "data/syrphidae3.xlsx", 
+                                  sheet = "species names for analysis", 
+                                  col_names = TRUE)
+setDT(names_syrph)
+
+# check for typos
+sort(unique(names_syrph$`name for analysis`), na.last = TRUE)
+# print each species name on a separate line
+cat(sort(unique(names_syrph$`name for analysis`), na.last = TRUE), sep = "\n") 
+# DELETE
+# remove the DELETE
+names_syrph <- names_syrph[`name for analysis` != "DELETE"]
+
+# check duplicates by Syrphidae_species 
+names_syrph[duplicated(names_syrph, by = "Syrphidae_species")]
+# 1: Cheilosia caerulescens     old Cheilosia caerulescens
+
+# remove the duplicates
+names_syrph <- names_syrph[!duplicated(names_syrph, by = "Syrphidae_species")]
+
+# -------------------------------------
+# Read Bombus species names
+# -------------------------------------
+names_bombus <- readxl::read_excel(path = "data/bombus.xlsx", 
+                                  sheet = "name for analysis", 
+                                  col_names = TRUE)
+setDT(names_bombus)
+
+# check for typos
+sort(unique(names_bombus$`name for analysis`), na.last = TRUE)
+# print each species name on a separate line
+cat(sort(unique(names_bombus$`name for analysis`), na.last = TRUE), sep = "\n") 
+# none
+
+# check duplicates 
+names_bombus[duplicated(names_bombus, by = "species")]
+# none
+
+# -------------------------------------
+# Read Lepidoptera species names
+# -------------------------------------
+names_lepi <- readxl::read_excel(path = "data/leps for analysis.xlsx", 
+                                 sheet = "Lepidoptera_species_names_VS", 
+                                 col_names = TRUE)
+setDT(names_lepi)
+
+# remove moths
+names_lepi <- names_lepi[is.na(moth)]
+
+# check for typos
+sort(unique(names_lepi$`name for analysis`), na.last = TRUE)
+# print each species name on a separate line
+cat(sort(unique(names_lepi$`name for analysis`), na.last = TRUE), sep = "\n")
+# Found typo:
+# Euphydrias aurinia debilis
+# Euphydryas aurinia debilis
+# correct typo based on discussion with Jeroen
+names_lepi[`name for analysis` == "Euphydrias aurinia debilis",
+           `name for analysis` := "Euphydryas aurinia debilis"]
+# I noticed also an "NA"
+names_lepi[is.na(`name for analysis`)]
+# 1: Hecatera dysodea     old                NA   NA
+# seems to be a moth https://en.wikipedia.org/wiki/Hecatera_dysodea
+# and I deleted the record
+names_lepi <- names_lepi[insect_sp != "Hecatera dysodea"]
+
+# check duplicates 
+names_lepi[duplicated(names_lepi, by = "insect_sp")]
+# 1: Plebeius optilete     new Plebejus optilete   NA
+
+# remove the duplicates
+names_lepi <- names_lepi[!duplicated(names_lepi, by = "insect_sp")]
+
+# -------------------------------------
+# Bind all correct species names
+# -------------------------------------
+my_lst_dt <- list(names_syrph[,.(Syrphidae_species, `name for analysis`, dataset)], 
+                  names_bombus, 
+                  names_lepi[,.(insect_sp, `name for analysis`, dataset)])
+names(my_lst_dt) <- c("syrphidae", "bombus", "lepidoptera")
+names_all <- rbindlist(my_lst_dt, idcol = "group_for_analysis")
+
+setnames(x = names_all, 
+         old = c("Syrphidae_species", "name for analysis"),
+         new = c("insect_sp", "insect_sp_analysis"))
+
+# -------------------------------------
+# Merge with big dataset
+# -------------------------------------
+mueller_all <- merge(x = mueller_all,
+                     y = names_all,
+                     by = "insect_sp",
+                     all.x = TRUE,
+                     sort = FALSE)
+
 setcolorder(x = mueller_all,
             neworder = c("period", "year",
                          "loc_5", "loc_5_umlaut", "x_loc_5", "y_loc_5",
                          "loc_3", "loc_3_umlaut", "x_loc_3", "y_loc_3",
                          "site", "altitude",
-                         "plant_sp", "insect_sp", "insect_order"))
+                         "plant_sp", 
+                         "insect_sp", "insect_sp_analysis", "dataset",
+                         "group_for_analysis", "insect_order"))
 
-# =============================================================================
-# Harmonize insect species names
-# =============================================================================
-
-
-
+rm(my_lst_dt, names_all, names_syrph, names_bombus, names_lepi)
 
 # =============================================================================
 # Write results
@@ -257,7 +357,6 @@ setcolorder(x = mueller_all,
 write.csv(mueller_all, "output/mueller_all.csv", row.names = FALSE)
 writexl::write_xlsx(mueller_all, path = "output/mueller_all.xlsx")
 
-rm(loc3_wd_coords)
 
 # =============================================================================
 # Some aggregation results
@@ -303,8 +402,11 @@ write.csv(loc5_year_counts_removed_loc5_year,
 writexl::write_xlsx(loc5_year_counts_removed_loc5_year, 
                     path = "output/loc5_year_counts_removed_loc5_year.xlsx")
 
-
-
+# remove not needed objects
+rm(altitude_histogram_panel, 
+   my_histos, 
+   loc5_year_counts, 
+   loc5_year_counts_removed_loc5_year)
 
 ### Run some umlaut tests
 ###############################################################################

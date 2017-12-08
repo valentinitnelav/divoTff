@@ -1,5 +1,7 @@
 ###############################################################################
-# Script to match sampled point locations using minimum distance approach
+# 2017 dataset.
+# Script to snap sampled point locations to location 3 level from past
+# using minimum distance approach.
 ###############################################################################
 
 library(readxl)

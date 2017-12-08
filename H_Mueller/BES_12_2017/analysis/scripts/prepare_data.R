@@ -37,10 +37,10 @@ mueller_2016 <- mueller_2016[,.(Site, location, location3, location5,
 # -------------------------------------
 # Merge altitude data with main table
 # -------------------------------------
-mueller_2016_altitude <- readxl::read_excel(path = "data/mueller data 2016_with elevation.xlsx", 
+mueller_2016_altitude <- readxl::read_excel(path = "data/Tiffany/mueller data 2016_with elevation.xlsx", 
                                             sheet = "locations", 
                                             col_names = TRUE)
-setDT(mueller_2016_altitude)
+setDT(mueller_2016_altitude) # transform to data.table object
 
 mueller_2016 <- merge(x = mueller_2016,
                       y = mueller_2016_altitude[,.(site, `elevation (m)`)],
@@ -94,8 +94,10 @@ rm(loc3_2016)
 mueller_2017 <- readxl::read_excel(path = "data/Jeroen/Mueller Plants Pollinators 2017 _ v20171208-3.xlsx", 
                                    sheet = "observations", 
                                    col_names = TRUE)
-setDT(mueller_2017)
-# Subset
+
+setDT(mueller_2017) # transform to data.table object
+
+# Select needed columns only
 mueller_2017 <- mueller_2017[,.(Site, insectspecies, `insect order`, `plant species-correctedWD`)]
 
 # -------------------------------------
@@ -246,9 +248,9 @@ rm(loc3_wd_coords)
 # Harmonize insect species names
 # =============================================================================
 # -------------------------------------
-# Read Syrphidae species names
+# Read Syrphidae species names from lookup table
 # -------------------------------------
-names_syrph <- readxl::read_excel(path = "data/syrphidae3.xlsx", 
+names_syrph <- readxl::read_excel(path = "data/Tiffany/syrphidae3.xlsx", 
                                   sheet = "species names for analysis", 
                                   col_names = TRUE)
 setDT(names_syrph)
@@ -271,8 +273,8 @@ names_syrph <- names_syrph[!duplicated(names_syrph, by = "Syrphidae_species")]
 # -------------------------------------
 # Read Bombus species names
 # -------------------------------------
-names_bombus <- readxl::read_excel(path = "data/bombus.xlsx", 
-                                  sheet = "name for analysis", 
+names_bombus <- readxl::read_excel(path = "data/Jeroen/Bombus recompiled.xlsx", 
+                                  sheet = "Bombus", 
                                   col_names = TRUE)
 setDT(names_bombus)
 
@@ -280,7 +282,9 @@ setDT(names_bombus)
 sort(unique(names_bombus$`name for analysis`), na.last = TRUE)
 # print each species name on a separate line
 cat(sort(unique(names_bombus$`name for analysis`), na.last = TRUE), sep = "\n") 
-# none
+
+# remove the DELETE
+names_bombus <- names_bombus[`name for analysis` != "DELETE"]
 
 # check duplicates 
 names_bombus[duplicated(names_bombus, by = "species")]
@@ -289,7 +293,7 @@ names_bombus[duplicated(names_bombus, by = "species")]
 # -------------------------------------
 # Read Lepidoptera species names
 # -------------------------------------
-names_lepi <- readxl::read_excel(path = "data/leps for analysis.xlsx", 
+names_lepi <- readxl::read_excel(path = "data/Tiffany/leps for analysis.xlsx", 
                                  sheet = "Lepidoptera_species_names_VS", 
                                  col_names = TRUE)
 setDT(names_lepi)

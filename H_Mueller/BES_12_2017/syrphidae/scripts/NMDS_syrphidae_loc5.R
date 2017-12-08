@@ -1,6 +1,5 @@
 ###############################################################################
 ## Script for testing how Syrphidae insect species vary in space
-## Running NMDS on aggregated Syrphidae data
 ###############################################################################
 
 library(data.table)
@@ -24,36 +23,23 @@ library(geosphere)
 # -------------------------------------
 # Read Mueller dataset (past + 2016 + 2017)
 # -------------------------------------
+# mueller_all.csv was obtain with the prepare_data.R script
 mueller_all <- data.table(read.csv("output/mueller_all.csv", stringsAsFactors = FALSE))
 
 # =============================================================================
 # Prepare data
 # =============================================================================
 # Select only syrphidae
-syrph_dt <- mueller_all[group_for_analysis == "syrphidae"]
+insects_dt <- mueller_all[group_for_analysis == "syrphidae"]
 
-# -------------------------------------
-# Plot altitude histograms
-# -------------------------------------
-source("scripts/helpers/altitude_histogram_panel.R")
-my_histos <- altitude_histogram_panel(data = syrph_dt, 
-                                      varb = "altitude", 
-                                      wrap_varb = "loc_5", 
-                                      xintercept = 2500)
-
-ggsave(filename = "output/syrphidae/syrphidae_loc5_histogram_altitude.pdf", 
-       plot = my_histos, 
-       width = 29.7, 
-       height = 21, 
-       units = "cm")
-
-# remove not needed objects
-rm(my_histos, altitude_histogram_panel)
+# give the folder name where all results will be saved
+# this folder will be inside the folder "output"
+my_folder <- "syrphidae"
 
 # -------------------------------------
 # check plant species names
 # -------------------------------------
-sort(unique(syrph_dt$plant_sp))
+sort(unique(insects_dt$plant_sp), na.last = TRUE)
 
 # Found following artefacts:
 
@@ -66,23 +52,20 @@ sort(unique(syrph_dt$plant_sp))
 # [168] "Senecio rupestris W. et K."            mueller_2016                                  
 # [169] "Senecio rupestris Waldst. & Kit."      mueller_2016 & mueller_past
 
-syrph_dt[plant_sp == "Helianthemum alpestre (jacq.) DC.", 
-         plant_sp := "Helianthemum alpestre (Jacq.) DC."]
+insects_dt[plant_sp == "Helianthemum alpestre (jacq.) DC.", 
+           plant_sp := "Helianthemum alpestre (Jacq.) DC."]
 
-syrph_dt[plant_sp == "Knautia dipsacifolia Kreutzer", 
-         plant_sp := "Knautia dipsacifolia Kreutzer s.l."]
+insects_dt[plant_sp == "Knautia dipsacifolia Kreutzer", 
+           plant_sp := "Knautia dipsacifolia Kreutzer s.l."]
 
-syrph_dt[plant_sp == "Senecio rupestris W. et K.", 
-         plant_sp := "Senecio rupestris Waldst. & Kit."]
+insects_dt[plant_sp == "Senecio rupestris W. et K.", 
+           plant_sp := "Senecio rupestris Waldst. & Kit."]
 
-write.csv(syrph_dt, 
-          file = "output/syrphidae/syrphidae_all_data_past&present.csv", 
-          row.names = FALSE)
 
 # -------------------------------------
 # Remove given sites (not enough sampled)
 # -------------------------------------
-sort(unique(syrph_dt$loc_5))
+sort(unique(insects_dt$loc_5))
 
 sites_2remove <- c("Agums, Glurns" ,
                    "Filisur, Schmitten, Wiesen, Alvaneu",
@@ -92,14 +75,37 @@ sites_2remove <- c("Agums, Glurns" ,
                    "Surava_Tiefencastel",
                    "Unterengadin",
                    "Val Viola, Bormio")
-syrph_dt <- syrph_dt[!(loc_5 %in% sites_2remove)]
+insects_dt <- insects_dt[!(loc_5 %in% sites_2remove)]
 rm(sites_2remove)
 
-write.csv(syrph_dt, 
-          file = "output/syrphidae/syrphidae_selected_sites_past&present.csv", 
+# save results - they will be used further for the time analysis
+write.csv(insects_dt, 
+          file = paste0("output/", my_folder, "/", my_folder,
+                        "_selected_sites_past&present.csv"), 
           row.names = FALSE)
-writexl::write_xlsx(syrph_dt, 
-                    path = "output/syrphidae/syrphidae_selected_sites_past&present.xlsx")
+writexl::write_xlsx(insects_dt, 
+                    path = paste0("output/", my_folder, "/", my_folder,
+                                  "_selected_sites_past&present.xlsx"))
+
+# -------------------------------------
+# Plot altitude histograms
+# -------------------------------------
+source("scripts/helpers/altitude_histogram_panel.R")
+
+my_histos <- altitude_histogram_panel(data = insects_dt, 
+                                      varb = "altitude", 
+                                      wrap_varb = "loc_5", 
+                                      xintercept = 2500)
+
+ggsave(filename = paste0("output/", my_folder, "/", my_folder,
+                         "_loc5_histogram_altitude.pdf"), 
+       plot = my_histos, 
+       width = 29.7, 
+       height = 21, 
+       units = "cm")
+
+# remove not needed objects
+rm(my_histos, altitude_histogram_panel)
 
 # -------------------------------------
 # Split given sites by altitude threshold
@@ -109,26 +115,15 @@ altit_threshold <- 2500 # altitude to split a site
 sites_2split <- c("Oberengadin (5)",
                   "Stelvio, Piz Umbrail, Spondalonga")
 
-# sites_2split <- c("Davos, Dischma, Strela",
-#                   "Franzenshoehe, Madatsch",
-#                   "Oberengadin (5)",
-#                   "Stelvio, Piz Umbrail, Spondalonga",
-#                   "Suldental")
+insects_dt[, loc_5_orig := loc_5]
+insects_dt[, loc_5 := ifelse( (loc_5 %in% sites_2split) & 
+                                (altitude >= altit_threshold),
+                              yes = paste0(loc_5, 
+                                           " (>=", 
+                                           altit_threshold, 
+                                           " m)"),
+                              no = loc_5 )]
 
-syrph_dt[, loc_5_orig := loc_5]
-syrph_dt[, loc_5 := ifelse( (loc_5 %in% sites_2split) & 
-                              (altitude >= altit_threshold),
-                            yes = paste0(loc_5, 
-                                         " (>=", 
-                                         altit_threshold, 
-                                         " m)"),
-                            no = loc_5 )]
-
-write.csv(syrph_dt, 
-          file = "output/syrphidae/syrphidae_selected_split_sites_past&present.csv", 
-          row.names = FALSE)
-writexl::write_xlsx(syrph_dt, 
-                    path = "output/syrphidae/syrphidae_selected_split_sites_past&present.xlsx")
 
 # remove objects that are not needed
 rm(sites_2split, altit_threshold)
@@ -137,10 +132,10 @@ rm(sites_2split, altit_threshold)
 # Create location-by-insect-species matrix
 # =============================================================================
 # check for NA locations
-syrph_dt[is.na(loc_5)]
-# syrph_dt <- syrph_dt[!is.na(loc_5)]
+insects_dt[is.na(loc_5)]
+# insects_dt <- insects_dt[!is.na(loc_5)]
 
-commat_loc5_insects_mat <- table( syrph_dt[,.(loc_5, insect_sp)] )
+commat_loc5_insects_mat <- table( insects_dt[,.(loc_5, insect_sp)] )
 
 # for easy visual inspection transform to data.frame object
 commat_loc5_insects_df <- as.data.frame.matrix(commat_loc5_insects_mat)
@@ -251,12 +246,12 @@ plot(smacof::Procrustes(nmds_jaccard_smacof$conf, nmds_jaccard_vegan$points))
 # Prepare & plot nMDS results
 # =============================================================================
 # Aggregate altitude
-aggreg_altitude <- syrph_dt[, .(altitude_avg_round_100 = round(mean(altitude, na.rm = TRUE)/100)*100,
-                                altitude_avg  = mean(altitude, na.rm = TRUE),
-                                altitue_range = paste0(round(range(altitude, 
-                                                                   na.rm = TRUE)/100)*100, 
-                                                       collapse = "-")), 
-                            by = loc_5]
+aggreg_altitude <- insects_dt[, .(altitude_avg_round_100 = round(mean(altitude, na.rm = TRUE)/100)*100,
+                                  altitude_avg  = mean(altitude, na.rm = TRUE),
+                                  altitue_range = paste0(round(range(altitude, 
+                                                                     na.rm = TRUE)/100)*100, 
+                                                         collapse = "-")), 
+                              by = loc_5]
 
 aggreg_altitude[, altitude_gr := cut(altitude_avg,
                                      breaks = c(seq(from = floor(round(min(altitude_avg)/100)*100), 
@@ -304,7 +299,8 @@ nmds_plot <- plot_nmds(nmds_xy = nmds_points,
                        expand_y = c(0.5, 0)) # passed to scale_y_continuous()
 
 set.seed(66)
-ggsave(filename = "output/syrphidae/syrphidae_loc5_NMDS_plot_altitude.pdf",
+ggsave(filename = paste0("output/", my_folder, "/", my_folder,
+                         "_loc5_NMDS_plot_altitude.pdf"),
        plot = nmds_plot, 
        width = 29.7, 
        height = 15, 
@@ -319,7 +315,7 @@ ggsave(filename = "output/syrphidae/syrphidae_loc5_NMDS_plot_altitude.pdf",
 # vs.
 # Distance between sites (km)
 # -----------------------------------------------------------------------------
-loc5_XY <- unique(syrph_dt[,.(loc_5, x_loc_5, y_loc_5)], by = "loc_5")
+loc5_XY <- unique(insects_dt[,.(loc_5, x_loc_5, y_loc_5)], by = "loc_5")
 # It is very important to set order the same as in other "dist" objects:
 setorder(loc5_XY, loc_5)
 identical(attributes(jaccard_dist_insects)$Labels, loc5_XY$loc_5) # should be TRUE
@@ -432,7 +428,7 @@ abline(lm(jaccard_dist_insects ~ alt_dif))
 # Altitude differences between sites
 # -----------------------------------------------------------------------------
 # Create location-by-plant-species matrix
-commat_loc5_plants_mat <- table( syrph_dt[,.(loc_5, plant_sp)] )
+commat_loc5_plants_mat <- table( insects_dt[,.(loc_5, plant_sp)] )
 commat_loc5_plants_df <- as.data.frame.matrix(commat_loc5_plants_mat)
 
 # Jaccard's index from plant abundances per site matrix (above)
@@ -460,7 +456,8 @@ abline(lm(jaccard_dist_insects ~ jaccard_dist_plants))
 # Plot all in one PDF file
 # -----------------------------------------------------------------------------
 
-pdf(file = "output/syrphidae/syrphidae_loc5_exploratory_graphs.pdf",
+pdf(file = paste0("output/", my_folder, "/", my_folder,
+                  "_loc5_exploratory_graphs.pdf"),
     width = 15/2.54, height = 12/2.54, 
     family = "Times", pointsize = 14)
 

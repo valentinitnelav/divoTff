@@ -8,12 +8,14 @@ library(writexl)
 # =============================================================================
 # Read historic data
 # =============================================================================
-mueller_past <- readxl::read_excel(path = "data/Mueller Plants Pollinators 1874-1879 6weeks _ v20171122.xlsx", 
+mueller_past <- readxl::read_excel(path = "data/Jeroen/Mueller Plants Pollinators 1874-1879 6weeks _ v20171208-2.xlsx", 
                                    sheet = "all data", 
                                    col_names = TRUE)
 # The warnings are not affecting current columns of interest
-setDT(mueller_past)
-# Subset
+
+setDT(mueller_past) # transform to data.table object
+
+# Select needed columns only
 mueller_past <- mueller_past[,.(year, altitude_mean_rounded,
                                 location3, location5,
                                 insectspecies, InsectOrderNew_WD,
@@ -22,11 +24,13 @@ mueller_past <- mueller_past[,.(year, altitude_mean_rounded,
 # =============================================================================
 # Read current data 2016
 # =============================================================================
-mueller_2016 <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2016 _ v20171122.xls", 
+mueller_2016 <- readxl::read_excel(path = "data/Jeroen/Mueller Plants Pollinators 2016 _ v20171208-2.xls", 
                                    sheet = "Data", 
                                    col_names = TRUE)
-setDT(mueller_2016)
-# Subset
+
+setDT(mueller_2016) # transform to data.table object
+
+# Select needed columns only
 mueller_2016 <- mueller_2016[,.(Site, location, location3, location5, 
                                 insectspecies, Order, Plant)]
 
@@ -87,7 +91,7 @@ rm(loc3_2016)
 # =============================================================================
 # Read current data 2017
 # =============================================================================
-mueller_2017 <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2017_v20171208.xlsx", 
+mueller_2017 <- readxl::read_excel(path = "data/Jeroen/Mueller Plants Pollinators 2017 _ v20171208-3.xlsx", 
                                    sheet = "observations", 
                                    col_names = TRUE)
 setDT(mueller_2017)
@@ -97,7 +101,7 @@ mueller_2017 <- mueller_2017[,.(Site, insectspecies, `insect order`, `plant spec
 # -------------------------------------
 # Merge altitude data with main table
 # -------------------------------------
-mueller_2017_altitude <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2017_v20171208.xlsx", 
+mueller_2017_altitude <- readxl::read_excel(path = "data/Jeroen/Mueller Plants Pollinators 2017 _ v20171208-3.xlsx", 
                                             sheet = "sites", 
                                             col_names = TRUE)
 setDT(mueller_2017_altitude)

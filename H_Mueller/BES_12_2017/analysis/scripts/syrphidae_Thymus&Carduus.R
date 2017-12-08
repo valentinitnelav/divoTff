@@ -125,7 +125,7 @@ nmds_plot <- plot_nmds(nmds_xy = nmds_points,
                        expand_x = c(0.5, 0), # passed to scale_x_continuous()
                        expand_y = c(0.5, 0)) # passed to scale_y_continuous()
 
-# my_plot
+set.seed(66)
 ggsave(filename = paste0("output/syrphidae/", my_sp_short_name, "/",
                          my_sp_short_name,
                          "_syrphidae_loc5_NMDS_plot_altitude.pdf"), 

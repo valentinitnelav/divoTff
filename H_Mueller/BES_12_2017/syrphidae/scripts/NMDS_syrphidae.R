@@ -8,6 +8,7 @@ library(readxl)
 library(writexl)
 library(ggplot2)
 library(ggrepel)    # for geom_text_repel() - repel overlapping text labels
+library(gplots) # for plotting text
 
 # packages for running nMDS:
 library(vegan)
@@ -94,6 +95,12 @@ sites_2remove <- c("Agums, Glurns" ,
 syrph_dt <- syrph_dt[!(loc_5 %in% sites_2remove)]
 rm(sites_2remove)
 
+write.csv(syrph_dt, 
+          file = "output/syrphidae/syrphidae_selected_sites_past&present.csv", 
+          row.names = FALSE)
+writexl::write_xlsx(syrph_dt, 
+                    path = "output/syrphidae/syrphidae_selected_sites_past&present.xlsx")
+
 # -------------------------------------
 # Split given sites by altitude threshold
 # -------------------------------------
@@ -118,10 +125,10 @@ syrph_dt[, loc_5 := ifelse( (loc_5 %in% sites_2split) &
                             no = loc_5 )]
 
 write.csv(syrph_dt, 
-          file = "output/syrphidae/syrphidae_selected_sites_past&present.csv", 
+          file = "output/syrphidae/syrphidae_selected_split_sites_past&present.csv", 
           row.names = FALSE)
 writexl::write_xlsx(syrph_dt, 
-                    path = "output/syrphidae/syrphidae_selected_sites_past&present.xlsx")
+                    path = "output/syrphidae/syrphidae_selected_split_sites_past&present.xlsx")
 
 # remove objects that are not needed
 rm(sites_2split, altit_threshold)
@@ -452,8 +459,6 @@ abline(lm(jaccard_dist_insects ~ jaccard_dist_plants))
 # -----------------------------------------------------------------------------
 # Plot all in one PDF file
 # -----------------------------------------------------------------------------
-# install.packages("gplots")
-library(gplots)
 
 pdf(file = "output/syrphidae/syrphidae_loc5_exploratory_graphs.pdf",
     width = 15/2.54, height = 12/2.54, 

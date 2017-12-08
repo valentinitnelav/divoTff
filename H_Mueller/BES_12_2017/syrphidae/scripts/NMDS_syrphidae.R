@@ -35,31 +35,43 @@ setDT(syrph_names)
 setnames(x = syrph_names, 
          old = "name for analysis",
          new = "syrphidae_analysis")
+
 # check for typos
-syrphidae_names_analysis <- sort(unique(syrph_names$syrphidae_analysis))
-cat(syrphidae_names_analysis, sep = "\n") # print each species name on a separate line
+sort(unique(syrph_names$syrphidae_analysis))
+# print each species name on a separate line
+cat(sort(unique(syrph_names$syrphidae_analysis)), sep = "\n") 
+
+# check duplicates by Syrphidae_species 
+syrph_names[duplicated(syrph_names, by = "Syrphidae_species")]
+# 1: Cheilosia caerulescens     old Cheilosia caerulescens
+
+# remove the duplicates
+syrph_names <- syrph_names[!duplicated(syrph_names, by = "Syrphidae_species")]
+
 
 # =============================================================================
 # Prepare data
 # =============================================================================
 # Select only syrphidae
-syrph_dt <- mueller_all[insect_sp %in% syrphidae_names_analysis]
+syrph_dt <- mueller_all[insect_sp %in% syrph_names$Syrphidae_species]
+# syrph_dt[, insect_sp_orig := insect_sp]
+
+# Attach column with insect species names for analysis
+syrph_dt <- merge(x = syrph_dt,
+                  y = syrph_names,
+                  by.x = "insect_sp",
+                  by.y = "Syrphidae_species",
+                  all.x = TRUE,
+                  sort = FALSE)
 
 # -------------------------------------
 # Plot altitude histograms
 # -------------------------------------
-my_histos <- 
-  ggplot(data = syrph_dt,
-         aes(altitude)) +
-  geom_histogram() +
-  geom_vline(xintercept = 2500, 
-             color = "red",
-             linetype = "dashed") + 
-  facet_wrap(~loc_5) +
-  theme_bw() +
-  # edit strip text for each panel
-  theme(strip.text = element_text(size = 8, 
-                                  face = "bold"))
+source("scripts/helpers/altitude_histogram_panel.R")
+my_histos <- altitude_histogram_panel(data = syrph_dt, 
+                                      varb = "altitude", 
+                                      wrap_varb = "loc_5", 
+                                      xintercept = 2500)
 
 ggsave(filename = "output/syrphidae_loc5_histogram_altitude.pdf", 
        plot = my_histos, 
@@ -67,7 +79,8 @@ ggsave(filename = "output/syrphidae_loc5_histogram_altitude.pdf",
        height = 21, 
        units = "cm")
 
-# rm(my_histos)
+# remove not needed objects
+rm(my_histos, altitude_histogram_panel)
 
 # -------------------------------------
 # check plant species names
@@ -454,7 +467,7 @@ abline(lm(jaccard_dist_insects ~ longitude_dif))
 # -----------------------------------------------------------------------------
 site_altitude <- copy(aggreg_altitude)
 setorder(site_altitude, loc_5)
-# identical(attributes(jaccard_dist_plants)$Labels, site_altit$loc_5)
+identical(attributes(jaccard_dist_insects)$Labels, site_altitude$loc_5)
 
 # Compute matrix of pair-wise differences in altitude
 alt_dif_mat <- outer(X = site_altitude$altitude_avg, 

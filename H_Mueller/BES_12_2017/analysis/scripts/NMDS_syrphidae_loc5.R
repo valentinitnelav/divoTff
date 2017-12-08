@@ -11,7 +11,6 @@ library(gplots) # for plotting text
 
 # packages for running nMDS:
 library(vegan)
-library(MASS)
 library(checkmate)  # was needed by smacof below
 library(smacof)
 
@@ -156,22 +155,12 @@ commat_loc5_insects_df <- as.data.frame.matrix(commat_loc5_insects_mat)
 # -------------------------------------
 # Compute Jaccard index
 # -------------------------------------
-# "Jaccard index has identical rank order (as Bray-Curtis), but has better metric properties, 
-# and probably should be preferred." (Oksanen, J., 2009)
-jaccard_dist_insects <-  vegan::vegdist(commat_loc5_insects_df, method = "jaccard", binary = TRUE)
-# Note that if not mentioning binary = TRUE in vegdist() then "Jaccard index is computed as 2B/(1+B), 
-# where B is Bray-Curtis dissimilarity" (from ?vegdist {vegan})
-# Nevertheless, the binary argument is not mentioned in the help file of metaMDS() nor of monoMDS(), 
-# which are called from metaMDS() at run time.
-# check the bug/issue here:
-# http://stats.stackexchange.com/questions/242110/nmds-from-jaccard-and-bray-curtis-identical-is-that-a-bad-thing
-# https://github.com/joey711/phyloseq/issues/572
-# IMPORTANT: Note the arguments of the "vegan" authors at:
-# https://github.com/vegandevs/vegan/issues/153
-
+jaccard_dist_insects <-  vegan::vegdist(commat_loc5_insects_df, 
+                                        method = "jaccard", 
+                                        binary = TRUE)
 
 # -----------------------------------------------------------------------------
-# Run nMDS with vegan, MASS, & smacof packages
+# Run nMDS with vegan & smacof packages
 # -----------------------------------------------------------------------------
 
 # -------------------------------------
@@ -179,68 +168,12 @@ jaccard_dist_insects <-  vegan::vegdist(commat_loc5_insects_df, method = "jaccar
 # -------------------------------------
 set.seed(2017)
 nmds_jaccard_vegan <- vegan::metaMDS(comm = jaccard_dist_insects, k = 2)
-nmds_jaccard_vegan # stress is given as proportion from 0 to 1 (from ?metaMDS, section Value)
-# Shepard Diagram
-stressplot(nmds_jaccard_vegan)
-
-# -------------------------------------
-# MASS - Jaccard
-# -------------------------------------
-set.seed(2017)
-nmds_jaccard_MASS <- MASS::isoMDS(d = jaccard_dist_insects, k = 2)
-nmds_jaccard_MASS
-stressplot(nmds_jaccard_MASS, dis = jaccard_dist_insects)
 
 # -------------------------------------
 # smacof - Jaccard
 # -------------------------------------
 set.seed(2017)
-nmds_jaccard_smacof <- smacof::mds(delta = jaccard_dist_insects, type = "ordinal", verbose = TRUE)
-nmds_jaccard_smacof # stress-1 is given as proportion from 0 to 1
-# Shepard Diagram
-plot(nmds_jaccard_smacof, plot.type = "Shepard")
-
-# Compute "Spearman rank-order correlation between input dissimilarities and scaled distances" (Jacoby, 2017)
-# This correlation should be the one reported in stressplot() together with the R^2= 1 - S^2
-# see details in Oksanen, J. (2009)
-cor(x = nmds_jaccard_smacof$delta, 
-    y = nmds_jaccard_smacof$confdist, 
-    method = "spearman")
-1 - nmds_jaccard_smacof$stress^2 # R^2= 1 - S^2
-
-# -------------------------------------
-# NOTE about stress values:
-# -------------------------------------
-# << A large stress value does not necessarily indicate bad fit
-# The lower bound of the stress value is 0 (perfect fitt), the upper bound is nontrivial 
-# (see De Leeuw and Stoop 1984). What is a 'good' stress value then? 
-# Kruskal (1964a) gave some stress-1 benchmarks for ordinal MDS: 
-# 0.20 = poor, 0.10 = fair, 0.05 = good, 0.025 = excellent, and 0.00 = perfect. 
-# As always, such general rules of thumb are problematic since there are
-# many aspects that need to be considered when judging stress 
-# (see Borg, Groenen, and Mair 2012, for details).>> in Mair (2015).
-
-# -----------------------------------------------------------------------------
-# Comparing models with Procrustes rotation
-# -----------------------------------------------------------------------------
-# suggested by Jari Oksanen in Oksanen, J. (2009)
-
-# "The descriptive statistic is 'Procrustes sum of squares' 
-# or the sum of squared arrows in the Procrustes plot" (Oksanen, J., 2009)
-plot(vegan::procrustes(nmds_jaccard_vegan, nmds_jaccard_MASS))
-# "You can use identify() function to identify points in an interactive session, 
-# or you can ask a plot of residual differences only:" (Oksanen, J., 2009)
-
-# "With argument symmetric = TRUE, both solutions are first scaled to unit variance, 
-# and a more scale-independent and symmetric statistic is found (often known as Procrustes m2)."
-# (Oksanen, J., 2009)
-plot(vegan::procrustes(nmds_jaccard_vegan, nmds_jaccard_MASS, symmetric = TRUE))
-
-# Procrustes between vegan and smacof outputs need to be treated differently.
-# e.g. Mair, et. al. (2015). Multidimensional scaling in R: smacof. Technical report.
-plot(smacof::Procrustes(nmds_jaccard_vegan$points, nmds_jaccard_smacof$conf))
-# same as above, but rotate axis
-plot(smacof::Procrustes(nmds_jaccard_smacof$conf, nmds_jaccard_vegan$points))
+nmds_jaccard_smacof <- smacof::mds(delta = jaccard_dist_insects, type = "ordinal")
 
 # =============================================================================
 # Prepare & plot nMDS results

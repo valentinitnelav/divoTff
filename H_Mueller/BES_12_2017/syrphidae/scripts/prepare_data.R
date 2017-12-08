@@ -3,6 +3,8 @@
 ###############################################################################
 library(data.table)
 library(readxl)
+# install.packages("writexl") 
+library(writexl)
 
 # =============================================================================
 # Read historic data
@@ -80,10 +82,13 @@ mueller_2016[loc3_2016, on = .(Site), location3 := location3_estimate]
 # check missing location5 & 3 records
 mueller_2016[is.na(location5)]
 mueller_2016[is.na(location3)]
+
+rm(loc3_2016)
+
 # =============================================================================
 # Read current data 2017
 # =============================================================================
-mueller_2017 <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2017 _ v20171122.xlsx", 
+mueller_2017 <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2017_v20171208.xlsx", 
                                    sheet = "observations", 
                                    col_names = TRUE)
 setDT(mueller_2017)
@@ -93,7 +98,7 @@ mueller_2017 <- mueller_2017[,.(Site, insectspecies, `insect order`, `plant spec
 # -------------------------------------
 # Merge altitude data with main table
 # -------------------------------------
-mueller_2017_altitude <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2017 _ v20171122.xlsx", 
+mueller_2017_altitude <- readxl::read_excel(path = "data/Mueller Plants Pollinators 2017_v20171208.xlsx", 
                                             sheet = "sites", 
                                             col_names = TRUE)
 setDT(mueller_2017_altitude)
@@ -183,6 +188,10 @@ setnames(x = mueller_all,
                  "new plant species (FH)", "insectspecies", "InsectOrderNew_WD"),
          new = c("loc_3", "loc_5", "altitude", "plant_sp", "insect_sp", "insect_order"))
 
+# -------------------------------------
+# Create column without umlautes;
+# they can create problems when aggregating with data.table
+# -------------------------------------
 mueller_all[, loc_3_umlaut := loc_3]
 mueller_all[, loc_3 := gsub(pattern = "ä", replacement = "ae", x = loc_3)]
 mueller_all[, loc_3 := gsub(pattern = "ö", replacement = "oe", x = loc_3)]
@@ -235,14 +244,28 @@ setcolorder(x = mueller_all,
                          "site", "altitude",
                          "plant_sp", "insect_sp", "insect_order"))
 
+# =============================================================================
+# Harmonize insect species names
+# =============================================================================
+
+
+
+
+# =============================================================================
+# Write results
+# =============================================================================
 write.csv(mueller_all, "output/mueller_all.csv", row.names = FALSE)
+writexl::write_xlsx(mueller_all, path = "output/mueller_all.xlsx")
+
+rm(loc3_wd_coords)
 
 # =============================================================================
 # Some aggregation results
 # =============================================================================
-mueller_all <- data.table(read.csv("output/mueller_all.csv", stringsAsFactors = FALSE))
+# mueller_all <- data.table(read.csv("output/mueller_all.csv", stringsAsFactors = FALSE))
 loc5_year_counts <- mueller_all[, .N, by = c("loc_5", "year")]
 write.csv(loc5_year_counts, "output/loc5_year_counts.csv", row.names = FALSE)
+writexl::write_xlsx(loc5_year_counts, path = "output/loc5_year_counts.xlsx")
 
 # Create histogram of altitudes for each location
 library(ggplot2)
@@ -267,13 +290,21 @@ sites_2remove <- c("Agums, Glurns" ,
                    "Unterengadin",
                    "Val Viola, Bormio")
 # exclude sites and some years
-loc5_year_counts_removed_loc5 <- mueller_all[!(loc_5 %in% sites_2remove) & !(year %in% c(1878, 1879)),
-                                             .N, 
-                                             by = c("loc_5", "year")]
-sort(unique(loc5_year_counts_removed_loc5$loc_5))
+loc5_year_counts_removed_loc5_year <- mueller_all[!(loc_5 %in% sites_2remove) & !(year %in% c(1878, 1879)),
+                                                  .N, 
+                                                  by = c("loc_5", "year")]
+sort(unique(loc5_year_counts_removed_loc5_year$loc_5))
 rm(sites_2remove)
 
-write.csv(loc5_year_counts_removed_loc5, "output/loc5_year_counts_removed_loc5.csv", row.names = FALSE)
+# Save results
+write.csv(loc5_year_counts_removed_loc5_year, 
+          file = "output/loc5_year_counts_removed_loc5_year.csv", 
+          row.names = FALSE)
+writexl::write_xlsx(loc5_year_counts_removed_loc5_year, 
+                    path = "output/loc5_year_counts_removed_loc5_year.xlsx")
+
+
+
 
 ### Run some umlaut tests
 ###############################################################################

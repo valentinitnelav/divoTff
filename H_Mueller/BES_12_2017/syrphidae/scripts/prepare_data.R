@@ -44,6 +44,42 @@ mueller_2016 <- merge(x = mueller_2016,
                       all.x = TRUE)
 rm(mueller_2016_altitude)
 
+# -------------------------------------
+# Update missing location3 & location5
+# -------------------------------------
+# check missing location5 records
+mueller_2016[is.na(location5)]
+
+# read assigned minimum distance location 3 to site without location 3 correspondence
+loc3_2016 <- data.table(read.csv("../match_locations/output/sites2016_min_dist_match_location3.csv"))
+
+# location 3 - 5 correspondence
+locations <- mueller_past[, .(location5 = unique(location5)), by = location3]
+
+# check some differences
+setdiff(loc3_2016$location3, locations$location3)
+setdiff(locations$location3, loc3_2016$location3)
+
+# add loc 5 info to loc3_2016
+loc3_2016 <- merge(x = loc3_2016,
+                   y = locations,
+                   by.x = "location3_estimate",
+                   by.y = "location3",
+                   all.x = TRUE)
+rm(locations)
+
+# rename some columns to avoid errros when updating in place
+setnames(x = loc3_2016, 
+         old = c("site", "location5"), 
+         new = c("Site", "location5_estimate"))
+# Update in place missing location5
+mueller_2016[loc3_2016, on = .(Site), location5 := location5_estimate]
+# Update in place missing location3
+mueller_2016[loc3_2016, on = .(Site), location3 := location3_estimate]
+
+# check missing location5 & 3 records
+mueller_2016[is.na(location5)]
+mueller_2016[is.na(location3)]
 # =============================================================================
 # Read current data 2017
 # =============================================================================
@@ -162,7 +198,7 @@ mueller_all[, loc_5 := gsub(pattern = "ü", replacement = "ue", x = loc_5)]
 sort(unique(mueller_all$loc_5))
 
 # =============================================================================
-# Get location 3 coordinates
+# Add location 3 coordinates
 # =============================================================================
 # These are coordinates extracted from the KMZ files from Walter Durka.
 loc3_wd_coords <- fread("../match_locations/data/Locations_uniq_records_KMZ_coord.csv")
@@ -201,6 +237,43 @@ setcolorder(x = mueller_all,
 
 write.csv(mueller_all, "output/mueller_all.csv", row.names = FALSE)
 
+# =============================================================================
+# Some aggregation results
+# =============================================================================
+mueller_all <- data.table(read.csv("output/mueller_all.csv", stringsAsFactors = FALSE))
+loc5_year_counts <- mueller_all[, .N, by = c("loc_5", "year")]
+write.csv(loc5_year_counts, "output/loc5_year_counts.csv", row.names = FALSE)
+
+# Create histogram of altitudes for each location
+library(ggplot2)
+source("scripts/helpers/altitude_histogram_panel.R")
+my_histos <- altitude_histogram_panel(data = mueller_all, 
+                                      varb = "altitude", 
+                                      wrap_varb = "loc_5", 
+                                      xintercept = 2500)
+ggsave(filename = "output/all_data_loc5_histogram_altitude.pdf", 
+       plot = my_histos, 
+       width = 29.7, 
+       height = 21, 
+       units = "cm")
+
+# redo aggregation, but exclude sites
+sites_2remove <- c("Agums, Glurns" ,
+                   "Filisur, Schmitten, Wiesen, Alvaneu",
+                   "Landeck-Flirsch",
+                   "Oberengadin (2)",
+                   "Oberengadin (3)",
+                   "Surava_Tiefencastel",
+                   "Unterengadin",
+                   "Val Viola, Bormio")
+# exclude sites and some years
+loc5_year_counts_removed_loc5 <- mueller_all[!(loc_5 %in% sites_2remove) & !(year %in% c(1878, 1879)),
+                                             .N, 
+                                             by = c("loc_5", "year")]
+sort(unique(loc5_year_counts_removed_loc5$loc_5))
+rm(sites_2remove)
+
+write.csv(loc5_year_counts_removed_loc5, "output/loc5_year_counts_removed_loc5.csv", row.names = FALSE)
 
 ### Run some umlaut tests
 ###############################################################################

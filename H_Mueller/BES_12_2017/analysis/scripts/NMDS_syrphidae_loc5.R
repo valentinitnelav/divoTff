@@ -51,7 +51,7 @@ sort(unique(insects_dt$plant_sp), na.last = TRUE)
 # "Knautia dipsacifolia Kreutzer"          mueller_2016                              
 # "Knautia dipsacifolia Kreutzer s.l."     mueller_2017
 # 
-# Senecio rupestris W. et K."            mueller_2016                                  
+# "Senecio rupestris W. et K."            mueller_2016                                  
 # "Senecio rupestris Waldst. & Kit."      mueller_2016 & mueller_past
 
 insects_dt <- insects_dt[plant_sp != "?"] # remove the "?" plant records

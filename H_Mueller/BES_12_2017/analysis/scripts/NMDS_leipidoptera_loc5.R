@@ -75,6 +75,7 @@ sites_2remove <- c("Agums, Glurns" ,
                    "Surava_Tiefencastel",
                    "Unterengadin",
                    "Val Viola, Bormio",
+                   "Finstermuenz",
                    "X_exclude!")
 insects_dt <- insects_dt[!(loc_5 %in% sites_2remove)]
 rm(sites_2remove)

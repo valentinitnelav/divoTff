@@ -20,17 +20,25 @@ library(smacof)
 # =============================================================================
 # Prepare data
 # =============================================================================
-# give directory name corresponding to a certain group of insects for analysis.
+
+########################################
+# NOTE: Change here for subsetting:
+# Give directory name corresponding to a certain group of insects for analysis.
 # imput/output if files takes place in this directory
 directory <- "syrphidae"
+# or
+directory <- "lepidoptera"
+# or
+directory <- "bombus"
+# or
+directory <- "all_groups"
+########################################
 
+# Read selected sites dataset
 insects_dt <- data.table(read.csv(paste0("output/", directory, "/", directory,
                                          "_selected_sites_past&present.csv"), 
                                   stringsAsFactors = FALSE))
 
-# check NA locations
-insects_dt[is.na(loc_5)]
-# insects_dt <- insects_dt[!is.na(loc_5)]
 
 ########################################
 # NOTE: Change here for subsetting:
@@ -47,6 +55,13 @@ insects_subst <- insects_dt[plant_sp == "Carduus defloratus L. s.l."]; my_folder
 # Build relative path
 # -------------------------------------
 my_path <- paste0("output/", directory, "/", my_folder, "/", my_folder, "_", directory)
+
+# -------------------------------------
+# Remove given sites (not enough sampled)
+# -------------------------------------
+# sites_2remove <- c("Ofen, Cierfs, Valcava")
+# insects_subst <- insects_subst[!(loc_5 %in% sites_2remove)]
+# rm(sites_2remove)
 
 # -------------------------------------
 # Plot altitude histograms
@@ -139,6 +154,7 @@ pdf_file <- paste0(my_path, "_loc5_exploratory_graphs.pdf"); pdf_file
 explore_plots_space(insects_dt    = insects_subst, 
                     nmds_results  = nmds_results, 
                     site_altitude = copy(nmds_points$aggreg_altitude),
+                    main_title = paste(toupper(directory), my_folder, sep = ": "),
                     path = pdf_file)
 # Defensively shuts down all open graphics devices.
 # This is needed in case the plotting function returns with error and

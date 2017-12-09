@@ -18,22 +18,22 @@ library(geosphere)
 # =============================================================================
 # Prepare data
 # =============================================================================
-syrphidae <- data.table(read.csv("output/syrphidae/syrphidae_selected_sites_past&present.csv", 
-                                 stringsAsFactors = FALSE))
+insects_dt <- data.table(read.csv("output/syrphidae/syrphidae_selected_sites_past&present.csv", 
+                                  stringsAsFactors = FALSE))
 
 # check NA locations
-syrphidae[is.na(loc_5)]
-# syrphidae <- syrphidae[!is.na(loc_5)]
+insects_dt[is.na(loc_5)]
+# insects_dt <- insects_dt[!is.na(loc_5)]
 
 ########################################
 # NOTE: Change here for subsetting:
 # First choose Thymus case and then run all remaining code after this section.
-syrph_subst <- syrphidae[plant_sp == "Thymus serpyllum aggr."]; my_folder <- "Thymus"
+insects_subst <- insects_dt[plant_sp == "Thymus serpyllum aggr."]; my_folder <- "Thymus"
 # When you run the line above, skip the one line below for Carduus below and 
 # jump directly next section ("Plot altitude histograms")
 
 # Then return here and re-run for Carduus case
-syrph_subst <- syrphidae[plant_sp == "Carduus defloratus L. s.l."]; my_folder <- "Carduus"
+insects_subst <- insects_dt[plant_sp == "Carduus defloratus L. s.l."]; my_folder <- "Carduus"
 ########################################
 
 # -------------------------------------
@@ -42,7 +42,7 @@ syrph_subst <- syrphidae[plant_sp == "Carduus defloratus L. s.l."]; my_folder <-
 # load helper function
 source("scripts/helpers/altitude_histogram_panel.R")
 
-my_histos <- altitude_histogram_panel(data = syrph_subst, 
+my_histos <- altitude_histogram_panel(data = insects_subst, 
                                       varb = "altitude", 
                                       wrap_varb = "loc_5", 
                                       xintercept = 2500)
@@ -61,7 +61,7 @@ rm(my_histos, altitude_histogram_panel)
 # Run nMDS with vegan & smacof packages
 # =============================================================================
 # Create location-by-insect-species matrix
-commat_loc5_insects_mat <- table( syrph_subst[,.(loc_5, insect_sp)] )
+commat_loc5_insects_mat <- table( insects_subst[,.(loc_5, insect_sp)] )
 # for easy visual inspection transform to data.frame object
 commat_loc5_insects_df <- as.data.frame.matrix(commat_loc5_insects_mat)
 
@@ -70,34 +70,30 @@ jaccard_dist_insects <-  vegan::vegdist(commat_loc5_insects_df,
                                         method = "jaccard", 
                                         binary = TRUE)
 
-# -------------------------------------
-# vegan - Jaccard
-# -------------------------------------
+# Run nMDS with vegan
 set.seed(2017)
 nmds_jaccard_vegan <- vegan::metaMDS(comm = jaccard_dist_insects, k = 2)
-nmds_jaccard_vegan # stress is given as proportion from 0 to 1 (from ?metaMDS, section Value)
-# Shepard Diagram
-stressplot(nmds_jaccard_vegan)
 
-# -------------------------------------
-# smacof - Jaccard
-# -------------------------------------
+# Run nMDS with smacof
 set.seed(2017)
 nmds_jaccard_smacof <- smacof::mds(delta = jaccard_dist_insects, type = "ordinal")
-nmds_jaccard_smacof # stress-1 is given as proportion from 0 to 1
-# Shepard Diagram
-plot(nmds_jaccard_smacof, plot.type = "Shepard")
 
 # =============================================================================
 # Prepare & plot nMDS results
 # =============================================================================
 # Aggregate altitude
-aggreg_altitude <- syrph_subst[, .(altitude_avg_round_100 = round(mean(altitude, na.rm = TRUE)/100)*100,
-                                   altitude_avg  = mean(altitude, na.rm = TRUE),
-                                   altitue_range = paste0(round(range(altitude, 
-                                                                      na.rm = TRUE)/100)*100, 
-                                                          collapse = "-")), 
-                               by = loc_5]
+aggreg_altitude <- insects_subst[, .(altitude_avg_round_100 = round(mean(altitude, na.rm = TRUE)/100)*100,
+                                     altitude_avg  = mean(altitude, na.rm = TRUE),
+                                     altitue_range = paste0(round(range(altitude, 
+                                                                        na.rm = TRUE)/100)*100, 
+                                                            collapse = "-")), 
+                                 by = loc_5]
+# Create altitue classes
+aggreg_altitude[, altitude_gr := cut(altitude_avg_round_100,
+                                     breaks = c(-Inf, 1500, 2000, 2500, Inf),
+                                     include.lowest = TRUE, 
+                                     right = FALSE,
+                                     dig.lab = 4)]
 
 # Prepare data for ggplot
 nmds_points <- rbind(nmds_jaccard_vegan$points,
@@ -124,7 +120,7 @@ nmds_points[, altitude_avg_round_100 := factor(altitude_avg_round_100)]
 
 nmds_plot <- plot_nmds(nmds_xy = nmds_points,
                        label_varb = "loc_5",
-                       fill_varb = "altitude_avg_round_100",
+                       fill_varb = "altitude_gr",
                        pj = position_jitter(width = 0, height = 0),
                        expand_x = c(0.5, 0), # passed to scale_x_continuous()
                        expand_y = c(0.5, 0)) # passed to scale_y_continuous()
@@ -148,7 +144,7 @@ ggsave(filename = paste0("output/syrphidae/", my_folder, "/",
 # vs.
 # Distance between sites (km)
 # -----------------------------------------------------------------------------
-loc5_XY <- unique(syrph_subst[,.(loc_5, x_loc_5, y_loc_5)], by = "loc_5")
+loc5_XY <- unique(insects_subst[,.(loc_5, x_loc_5, y_loc_5)], by = "loc_5")
 # It is very important to set order the same as in other "dist" objects:
 setorder(loc5_XY, loc_5)
 identical(attributes(jaccard_dist_insects)$Labels, loc5_XY$loc_5) # should be TRUE

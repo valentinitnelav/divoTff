@@ -27,12 +27,15 @@ mueller_all <- data.table(read.csv("output/mueller_all.csv", stringsAsFactors = 
 # =============================================================================
 # Prepare data
 # =============================================================================
-# Select only syrphidae
+# Select only group of interest
 insects_dt <- mueller_all[group_for_analysis == "syrphidae"]
 
 # give the folder name where all results will be saved
 # this folder will be inside the folder "output"
 my_folder <- "syrphidae"
+
+# Build relative path
+my_path <- paste0("output/", my_folder, "/", my_folder)
 
 # -------------------------------------
 # check plant species names
@@ -82,12 +85,11 @@ rm(sites_2remove)
 
 # save results - they will be used further for the time analysis
 write.csv(insects_dt, 
-          file = paste0("output/", my_folder, "/", my_folder,
-                        "_selected_sites_past&present.csv"), 
+          file = paste0(my_path, "_selected_sites_past&present.csv"), 
           row.names = FALSE)
 writexl::write_xlsx(insects_dt, 
-                    path = paste0("output/", my_folder, "/", my_folder,
-                                  "_selected_sites_past&present.xlsx"))
+                    path = paste0(my_path, "_selected_sites_past&present.xlsx"))
+
 
 # -------------------------------------
 # Plot altitude histograms
@@ -101,8 +103,7 @@ my_histos <- altitude_histogram_panel(data = insects_dt,
                                       xintercept = 2500)
 
 # Save multiplot histograms of altitudes in PDF file at:
-my_histo_pdf <- paste0("output/", my_folder, "/", my_folder, 
-                       "_loc5_histogram_altitude.pdf"); my_histo_pdf
+my_histo_pdf <- paste0(my_path, "_loc5_histogram_altitude.pdf"); my_histo_pdf
 
 ggsave(filename = my_histo_pdf,
        plot = my_histos, 
@@ -118,9 +119,11 @@ rm(my_histos, altitude_histogram_panel, my_histo_pdf)
 # -------------------------------------
 altit_threshold <- 2500 # altitude to split a site
 
+# Add here any site that should be split by altitude
 sites_2split <- c("Oberengadin (5)",
                   "Stelvio, Piz Umbrail, Spondalonga")
 
+# split give sites by altitude threshold
 insects_dt[, loc_5_orig := loc_5]
 insects_dt[, loc_5 := ifelse( (loc_5 %in% sites_2split) & 
                                 (altitude >= altit_threshold),
@@ -137,9 +140,6 @@ rm(sites_2split, altit_threshold)
 # =============================================================================
 # Run nMDS with vegan & smacof packages
 # =============================================================================
-# check for NA locations
-insects_dt[is.na(loc_5)]
-# insects_dt <- insects_dt[!is.na(loc_5)]
 
 # -------------------------------------
 # Create location-by-insect-species matrix
@@ -192,8 +192,7 @@ nmds_plot <- plot_nmds_space(nmds_xy = nmds_points$nmds_pts_altit,
                              expand_y = c(1, 0)) # passed to scale_y_continuous()
 
 # Save plot to PDF file at:
-nmds_pdf_file <- paste0("output/", my_folder, "/", my_folder,
-                        "_loc5_NMDS_plot_altitude.pdf"); nmds_pdf_file
+nmds_pdf_file <- paste0(my_path, "_loc5_NMDS_plot_altitude.pdf"); nmds_pdf_file
 set.seed(66)
 ggsave(filename = nmds_pdf_file,
        plot = nmds_plot, 
@@ -211,12 +210,12 @@ rm(nmds_plot, plot_nmds_space, nmds_pdf_file)
 source("scripts/helpers/explore_plots_space.R")
 
 # run helper function and save exploratory graphs in PDF file at:
-pdf_file <- paste0("output/", my_folder, "/", 
-                   my_folder, "_loc5_exploratory_graphs.pdf"); pdf_file
+pdf_file <- paste0(my_path, "_loc5_exploratory_graphs.pdf"); pdf_file
 
 explore_plots_space(insects_dt    = insects_dt, 
                     nmds_results  = nmds_results, 
                     site_altitude = copy(nmds_points$aggreg_altitude),
+                    main_title = toupper(my_folder),
                     path = pdf_file)
 # Defensively shuts down all open graphics devices.
 # This is needed in case the plotting function returns with error and

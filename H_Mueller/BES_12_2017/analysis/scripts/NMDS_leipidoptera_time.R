@@ -9,122 +9,102 @@ library(gplots) # for plotting text
 
 # packages for running nMDS:
 library(vegan)
-library(checkmate)  # was needed by smacof below
+library(checkmate) # was needed by smacof below
 library(smacof)
 
 # =============================================================================
 # Prepare & plot nMDS results
 # =============================================================================
-my_group_for_analysis <- "lepidoptera" # change here for subsetting
+# Give directory name corresponding to a certain group of insects for analysis.
+# imput/output if files takes place in this directory
+directory <- "lepidoptera"
 
-insects_dt <- data.table(read.csv("output/lepidoptera/lepidoptera_selected_sites_past&present.csv", 
-                                 stringsAsFactors = FALSE))
+# Build relative path
+my_path <- paste0("output/", directory, "/", directory)
+
+# Read selected sites dataset
+insects_dt <- data.table(read.csv(paste0(my_path, "_selected_sites_past&present.csv"), 
+                                  stringsAsFactors = FALSE))
 
 # remove 1879 & 1878
 insects_dt <- insects_dt[!(year %in% c(1878, 1879))]
 
-
-commat_year_insects_mat <- table( insects_dt[,.(year, insect_sp)] )
+# =============================================================================
+# Run nMDS with vegan & smacof packages
+# =============================================================================
+# Create year-by-insect-species matrix
+commat_year_insects_mat <- table( insects_dt[,.(year, insect_sp_analysis)] )
 # for easy visual inspection transform to data.frame object
 commat_year_insects_df <- as.data.frame.matrix(commat_year_insects_mat)
 
-jaccard_dist_insects <- vegan::vegdist(commat_year_insects_df, 
-                                       method = "jaccard", 
-                                       binary = TRUE)
-
-set.seed(2017)
-nmds_jaccard_vegan <- vegan::metaMDS(comm = jaccard_dist_insects, k = 2)
-nmds_jaccard_vegan # stress is given as proportion from 0 to 1 (from ?metaMDS, section Value)
-# Shepard Diagram
-stressplot(nmds_jaccard_vegan)
-
-set.seed(2017)
-nmds_jaccard_smacof <- smacof::mds(delta = jaccard_dist_insects, type = "ordinal")
-nmds_jaccard_smacof # stress-1 is given as proportion from 0 to 1
-# Shepard Diagram
-plot(nmds_jaccard_smacof, plot.type = "Shepard")
-cor(x = nmds_jaccard_smacof$delta, 
-    y = nmds_jaccard_smacof$confdist, 
-    method = "spearman")
-1 - nmds_jaccard_smacof$stress^2 # R^2= 1 - S^2
-
-# Comparing models with Procrustes rotation
-plot(smacof::Procrustes(nmds_jaccard_vegan$points, nmds_jaccard_smacof$conf))
-# same as above, but rotate axis
-plot(smacof::Procrustes(nmds_jaccard_smacof$conf, nmds_jaccard_vegan$points))
-
-# Prepare data for ggplot
-nmds_points <- rbind(nmds_jaccard_vegan$points,
-                     nmds_jaccard_smacof$conf)
-
-nmds_points <- data.table(nmds_points,
-                          id = 1:nrow(commat_year_insects_mat),
-                          year = rownames(commat_year_insects_mat),
-                          package = rep(c("vegan", "smacof"), each = nrow(commat_year_insects_mat)),
-                          dist_idx = "Jaccard")
+# -------------------------------------
+# Run nMDS 
+# -------------------------------------
+# load helper function
+source("scripts/helpers/run_nmds.R")
+# run nmds function
+nmds_results <- run_nmds(commat_df = commat_year_insects_df)
+# remove not needed objects
+rm(commat_year_insects_mat, run_nmds)
 
 # -----------------------------------------------------------------------------
 # Plot nMDS results
 # -----------------------------------------------------------------------------
-pj <- position_jitter(width = 0.05, height = 0.0025)
-
-my_plot <- 
-  ggplot(data = nmds_points, 
+nmds_plot <- 
+  ggplot(data = nmds_results$nmds_points, 
          aes(x = MDS1, 
              y = MDS2)) +
-  geom_label(aes(label = year,
-                 fill = factor(year)), 
+  geom_label(aes(label = my_varb), 
              colour = "black", 
+             fill = "gray75",
              fontface = "bold",
-             position = pj,
-             alpha = 0.6) +
+             alpha = 0.3,
+             size = 6) +
   # Adjust the distance (gap) from axis
-  # scale_x_continuous(expand = c(0.5, 0)) +
-  # scale_y_continuous(expand = c(0.5, 0)) +
-  labs(fill = 'Year') +
+  scale_x_continuous(expand = c(0.15, 0)) +
+  scale_y_continuous(expand = c(0.15, 0)) +
   theme_bw() +
   theme(panel.grid = element_blank()) +
-  facet_wrap(package ~ dist_idx, 
+  facet_wrap(~ package, 
              scales = "free", 
              labeller = label_both)
 
-ggsave(filename = paste0("output/", my_group_for_analysis, "/", my_group_for_analysis,
-                         "_year_NMDS_plot.pdf"), 
-       plot = my_plot, 
+# Save plot to PDF file at:
+nmds_pdf_file <- paste0(my_path, "_year_NMDS_plot.pdf"); nmds_pdf_file
+
+ggsave(filename = nmds_pdf_file, 
+       plot = nmds_plot, 
        width = 29.7, 
        height = 15, 
        units = "cm")
 
+# remove not needed objects
+rm(nmds_plot, nmds_pdf_file)
+
 # =============================================================================
 # Exploratory graphs
 # =============================================================================
-commat_year_plants_mat <- table( insects_dt[,.(year, plant_sp)] )
-# for easy visual inspection transform to data.frame object
-commat_year_plants_df <- as.data.frame.matrix(commat_year_plants_mat)
+# load helper function
+source("scripts/helpers/plot_insects_vs_plants_time.R")
 
-jaccard_dist_plants <- vegan::vegdist(commat_year_plants_df, 
-                                      method = "jaccard", 
-                                      binary = TRUE)
+# run helper function and save exploratory graphs in PDF file at:
+pdf_file <- paste0(my_path, "_year_Jaccard_insects_vs_plants.pdf"); pdf_file
 
-pdf(file = paste0("output/", my_group_for_analysis, "/", my_group_for_analysis,
-                  "_year_Jaccard_insects_vs_plants.pdf"),
-    width = 15/2.54, height = 12/2.54, 
-    family = "Times", pointsize = 14)
+plot_insects_vs_plants_time(insects_dt = insects_dt,
+                            nmds_results = nmds_results,
+                            main_title = paste0(toupper(directory), "; time"),
+                            path = pdf_file)
+# Defensively shuts down all open graphics devices.
+# This is needed in case the plotting function returns with error and
+# doesn't get to run dev.off()
+graphics.off()
 
-plot(jaccard_dist_insects ~ jaccard_dist_plants,
-     main = "Years: Jaccard distances, insects vs. plants")
-abline(lm(jaccard_dist_insects ~ jaccard_dist_plants))
-gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ jaccard_dist_plants))),
-                 cex = 0.4) 
-
-# close the device
-dev.off()
+# remove not needed objects
+rm(pdf_file, plot_insects_vs_plants_time)
 
 # =============================================================================
 # Aggregation by loc_5 and year
 # =============================================================================
-insects_dt_loc5_year_counts <- insects_dt[, .N, by = c("loc_5", "year")]
-
-writexl::write_xlsx(insects_dt_loc5_year_counts, 
-                    path = paste0("output/", my_group_for_analysis, "/", my_group_for_analysis,
-                                  "_loc5_year_counts.xlsx"))
+counts_by_loc5_year <- insects_dt[, .N, by = c("loc_5", "year")]
+writexl::write_xlsx(counts_by_loc5_year, 
+                    path = paste0(my_path, "_counts_by_loc5_year.xlsx"))

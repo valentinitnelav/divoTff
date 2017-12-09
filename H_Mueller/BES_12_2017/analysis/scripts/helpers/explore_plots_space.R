@@ -172,10 +172,11 @@ explore_plots_space <- function(insects_dt,
   formula_jacc_insect_by_jacc_plants <- formula(jaccard_dist_insects ~ jaccard_dist_plants)
 
   print({ 
-    plot(jaccard_dist_insects ~ jaccard_dist_plants)
-    abline(lm(jaccard_dist_insects ~ jaccard_dist_plants))
+    plot(formula_jacc_insect_by_jacc_plants)
+    tryCatch(abline(lm(formula_jacc_insect_by_jacc_plants)),
+             error = function(e) "Not applicable")
     # plot lm summary text as graph
-    gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ jaccard_dist_plants))),
+    gplots::textplot(object = capture.output(summary(lm(formula_jacc_insect_by_jacc_plants))),
                      cex = 0.4) 
   })
   

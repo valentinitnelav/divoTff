@@ -6,13 +6,13 @@ library(data.table)
 library(readxl)
 library(writexl)
 library(ggplot2)
-library(ggrepel)    # for geom_text_repel() - repel overlapping text labels
-library(gplots) # for plotting text
+library(ggrepel) # for geom_text_repel() - repel overlapping text labels
+library(gplots)  # for plotting text
 library(geosphere)
 
 # packages for running nMDS:
 library(vegan)
-library(checkmate)  # was needed by smacof below
+library(checkmate) # was needed by smacof below
 library(smacof)
 
 # =============================================================================
@@ -100,15 +100,18 @@ my_histos <- altitude_histogram_panel(data = insects_dt,
                                       wrap_varb = "loc_5", 
                                       xintercept = 2500)
 
-ggsave(filename = paste0("output/", my_folder, "/", my_folder,
-                         "_loc5_histogram_altitude.pdf"), 
+# Save multiplot histograms of altitudes in PDF file at:
+my_histo_pdf <- paste0("output/", my_folder, "/", my_folder, 
+                       "_loc5_histogram_altitude.pdf"); my_histo_pdf
+
+ggsave(filename = my_histo_pdf,
        plot = my_histos, 
        width = 29.7, 
        height = 21, 
        units = "cm")
 
 # remove not needed objects
-rm(my_histos, altitude_histogram_panel)
+rm(my_histos, altitude_histogram_panel, my_histo_pdf)
 
 # -------------------------------------
 # Split given sites by altitude threshold
@@ -134,14 +137,13 @@ rm(sites_2split, altit_threshold)
 # =============================================================================
 # Run nMDS with vegan & smacof packages
 # =============================================================================
-
-# -------------------------------------
-# Create location-by-insect-species matrix
-# -------------------------------------
 # check for NA locations
 insects_dt[is.na(loc_5)]
 # insects_dt <- insects_dt[!is.na(loc_5)]
 
+# -------------------------------------
+# Create location-by-insect-species matrix
+# -------------------------------------
 commat_loc5_insects_mat <- table( insects_dt[,.(loc_5, insect_sp_analysis)] )
 # for easy visual inspection transform to data.frame object
 commat_loc5_insects_df <- as.data.frame.matrix(commat_loc5_insects_mat)
@@ -212,14 +214,14 @@ source("scripts/helpers/explore_plots_space.R")
 pdf_file <- paste0("output/", my_folder, "/", 
                    my_folder, "_loc5_exploratory_graphs.pdf"); pdf_file
 
-# Defensively shuts down all open graphics devices.
-# This is needed in case the plotting function returns with error and
-# doesn't get to run dev.off()
-graphics.off() 
 explore_plots_space(insects_dt    = insects_dt, 
                     nmds_results  = nmds_results, 
                     site_altitude = copy(nmds_points$aggreg_altitude),
                     path = pdf_file)
+# Defensively shuts down all open graphics devices.
+# This is needed in case the plotting function returns with error and
+# doesn't get to run dev.off()
+graphics.off()
 
 # remove not needed objects
 rm(pdf_file, explore_plots_space)

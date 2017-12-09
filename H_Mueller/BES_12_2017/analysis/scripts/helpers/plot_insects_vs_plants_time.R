@@ -4,6 +4,7 @@
 
 plot_insects_vs_plants_time <- function(insects_dt,
                                         nmds_results,
+                                        main_title,
                                         path)
 {
   # -----------------------------------------------------------------------------
@@ -34,7 +35,7 @@ plot_insects_vs_plants_time <- function(insects_dt,
   
   print({ 
     plot(formula_jacc_insect_by_jacc_plants,
-         main = "Years: Jaccard distances, insects vs. plants")
+         main = main_title)
     abline(lm(formula_jacc_insect_by_jacc_plants))
     # plot lm summary text as graph
     gplots::textplot(object = capture.output(summary(lm(formula_jacc_insect_by_jacc_plants))),

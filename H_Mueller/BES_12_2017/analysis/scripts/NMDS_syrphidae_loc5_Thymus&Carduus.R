@@ -1,24 +1,29 @@
+###############################################################################
+## Script for testing how Syrphidae insect species vary in space for
 # Thymus serpyllum aggr.
 # Carduus defloratus L. s.l.
+###############################################################################
 
 library(data.table)
 library(readxl)
 library(writexl)
 library(ggplot2)
 library(ggrepel) # for geom_text_repel() - repel overlapping text labels
-library(gplots) # for plotting text
+library(gplots)  # for plotting text
+library(geosphere)
 
 # packages for running nMDS:
 library(vegan)
 library(checkmate) # was needed by smacof below
 library(smacof)
 
-library(geosphere)
-
 # =============================================================================
 # Prepare data
 # =============================================================================
-insects_dt <- data.table(read.csv("output/syrphidae/syrphidae_selected_sites_past&present.csv", 
+directory <- "syrphidae" # folder corresponding to a certain insect for analysis group 
+
+insects_dt <- data.table(read.csv(paste0("output/", directory, 
+                                         "/syrphidae_selected_sites_past&present.csv"), 
                                   stringsAsFactors = FALSE))
 
 # check NA locations
@@ -29,8 +34,8 @@ insects_dt[is.na(loc_5)]
 # NOTE: Change here for subsetting:
 # First choose Thymus case and then run all remaining code after this section.
 insects_subst <- insects_dt[plant_sp == "Thymus serpyllum aggr."]; my_folder <- "Thymus"
-# When you run the line above, skip the one line below for Carduus below and 
-# jump directly next section ("Plot altitude histograms")
+# When you run the line above, skip the one line below for Carduus and 
+# jump directly to next section ("Plot altitude histograms")
 
 # Then return here and re-run for Carduus case
 insects_subst <- insects_dt[plant_sp == "Carduus defloratus L. s.l."]; my_folder <- "Carduus"
@@ -47,234 +52,95 @@ my_histos <- altitude_histogram_panel(data = insects_subst,
                                       wrap_varb = "loc_5", 
                                       xintercept = 2500)
 
-ggsave(filename = paste0("output/syrphidae/", my_folder, "/", my_folder,
-                         "_syrphidae_loc5_histogram_altitude.pdf"), 
+# Save multiplot histograms of altitudes in PDF file at:
+my_histo_pdf <- paste0("output/", directory, "/", my_folder, "/", my_folder,
+                       "_syrphidae_loc5_histogram_altitude.pdf"); my_histo_pdf
+
+ggsave(filename = my_histo_pdf, 
        plot = my_histos, 
        width = 29.7, 
        height = 21, 
        units = "cm")
 
 # remove not needed objects
-rm(my_histos, altitude_histogram_panel)
+rm(my_histos, altitude_histogram_panel, my_histo_pdf)
 
 # =============================================================================
 # Run nMDS with vegan & smacof packages
 # =============================================================================
 # Create location-by-insect-species matrix
-commat_loc5_insects_mat <- table( insects_subst[,.(loc_5, insect_sp)] )
+commat_loc5_insects_mat <- table( insects_subst[,.(loc_5, insect_sp_analysis)] )
 # for easy visual inspection transform to data.frame object
 commat_loc5_insects_df <- as.data.frame.matrix(commat_loc5_insects_mat)
 
-# Compute Jaccard index
-jaccard_dist_insects <-  vegan::vegdist(commat_loc5_insects_df, 
-                                        method = "jaccard", 
-                                        binary = TRUE)
-
-# Run nMDS with vegan
-set.seed(2017)
-nmds_jaccard_vegan <- vegan::metaMDS(comm = jaccard_dist_insects, k = 2)
-
-# Run nMDS with smacof
-set.seed(2017)
-nmds_jaccard_smacof <- smacof::mds(delta = jaccard_dist_insects, type = "ordinal")
+# -------------------------------------
+# Run nMDS 
+# -------------------------------------
+# load helper function
+source("scripts/helpers/run_nmds.R")
+# run nmds function
+nmds_results <- run_nmds(commat_df = commat_loc5_insects_df)
+# remove not needed objects
+rm(commat_loc5_insects_mat, run_nmds)
 
 # =============================================================================
 # Prepare & plot nMDS results
 # =============================================================================
-# Aggregate altitude
-aggreg_altitude <- insects_subst[, .(altitude_avg_round_100 = round(mean(altitude, na.rm = TRUE)/100)*100,
-                                     altitude_avg  = mean(altitude, na.rm = TRUE),
-                                     altitue_range = paste0(round(range(altitude, 
-                                                                        na.rm = TRUE)/100)*100, 
-                                                            collapse = "-")), 
-                                 by = loc_5]
-# Create altitue classes
-aggreg_altitude[, altitude_gr := cut(altitude_avg_round_100,
-                                     breaks = c(-Inf, 1500, 2000, 2500, Inf),
-                                     include.lowest = TRUE, 
-                                     right = FALSE,
-                                     dig.lab = 4)]
-
-# Prepare data for ggplot
-nmds_points <- rbind(nmds_jaccard_vegan$points,
-                     nmds_jaccard_smacof$conf)
-
-nmds_points <- data.table(nmds_points,
-                          id = 1:nrow(commat_loc5_insects_df),
-                          loc_5 = rownames(commat_loc5_insects_df),
-                          package = rep(c("vegan", "smacof"), each = nrow(commat_loc5_insects_df)),
-                          dist_idx = "Jaccard")
-
-# Merge coordinates with altitude info
-nmds_points <- merge(x = nmds_points,
-                     y = aggreg_altitude,
-                     by = "loc_5",
-                     all.x = TRUE, 
-                     sort = FALSE)
+# load helper function
+source("scripts/helpers/prepare_nmds_coords.R")
+# apply function
+nmds_points <- prepare_nmds_coords(insects_dt = insects_subst,
+                                   nmds_pts   = copy(nmds_results$nmds_points),
+                                   altitude_breaks = c(-Inf, 1500, 2000, 2500, Inf))
+# remove not needed objects
+rm(prepare_nmds_coords)
 
 # -----------------------------------------------------------------------------
 # Plot nMDS results
 # -----------------------------------------------------------------------------
-source("scripts/helpers/plot_nmds.R")
-nmds_points[, altitude_avg_round_100 := factor(altitude_avg_round_100)]
+# load helper function
+source("scripts/helpers/plot_nmds_space.R")
+# Apply custom plotting function
+nmds_plot <- plot_nmds_space(nmds_xy = nmds_points$nmds_pts_altit,
+                             label_varb = "my_varb",
+                             fill_varb = "altitude_gr",
+                             pj = position_jitter(width = 0, height = 0),
+                             expand_x = c(1, 0), # passed to scale_x_continuous()
+                             expand_y = c(1, 0)) # passed to scale_y_continuous()
 
-nmds_plot <- plot_nmds(nmds_xy = nmds_points,
-                       label_varb = "loc_5",
-                       fill_varb = "altitude_gr",
-                       pj = position_jitter(width = 0, height = 0),
-                       expand_x = c(0.5, 0), # passed to scale_x_continuous()
-                       expand_y = c(0.5, 0)) # passed to scale_y_continuous()
+# Save plot to PDF file at:
+nmds_pdf_file <- paste0("output/", directory, "/", my_folder, "/",
+                        my_folder,
+                        "_syrphidae_loc5_NMDS_plot_altitude.pdf"); nmds_pdf_file
 
 set.seed(66)
-ggsave(filename = paste0("output/syrphidae/", my_folder, "/",
-                         my_folder,
-                         "_syrphidae_loc5_NMDS_plot_altitude.pdf"), 
-       # syrphidae_loc5_NMDS_plot.pdf or syrphidae_loc5_NMDS_plot_altitude_groups.pdf
+ggsave(filename = nmds_pdf_file, 
        plot = nmds_plot, 
        width = 29.7, 
        height = 15, 
        units = "cm")
 
+# remove not needed objects
+rm(nmds_plot, plot_nmds_space, nmds_pdf_file)
+
 # =============================================================================
 # Exploratory graphs
 # =============================================================================
+# load helper function
+source("scripts/helpers/explore_plots_space.R")
 
-# -----------------------------------------------------------------------------
-# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
-# vs.
-# Distance between sites (km)
-# -----------------------------------------------------------------------------
-loc5_XY <- unique(insects_subst[,.(loc_5, x_loc_5, y_loc_5)], by = "loc_5")
-# It is very important to set order the same as in other "dist" objects:
-setorder(loc5_XY, loc_5)
-identical(attributes(jaccard_dist_insects)$Labels, loc5_XY$loc_5) # should be TRUE
+# run helper function and save exploratory graphs in PDF file at:
+pdf_file <- paste0("output/", directory, "/", my_folder, "/", 
+                   my_folder, "_syrphidae_loc5_exploratory_graphs.pdf"); pdf_file
 
-# Compute matrix of great circle distances between new sampled sites and old sites
-dist_mat <- geosphere::distm(x = loc5_XY[,.(x_loc_5, y_loc_5)],
-                             y = loc5_XY[,.(x_loc_5, y_loc_5)],
-                             fun = distHaversine)
-dist_mat <- dist_mat/1000
-# row and column names
-dimnames(dist_mat) <- list(loc5_XY$loc_5, loc5_XY$loc_5)
+explore_plots_space(insects_dt    = insects_subst, 
+                    nmds_results  = nmds_results, 
+                    site_altitude = copy(nmds_points$aggreg_altitude),
+                    path = pdf_file)
+# Defensively shuts down all open graphics devices.
+# This is needed in case the plotting function returns with error and
+# doesn't get to run dev.off()
+graphics.off()
 
-# transform to class "dist"
-dist_km <- as.dist(dist_mat, diag = TRUE)
-# diag = TRUE is just for printing reasons
-identical(attributes(jaccard_dist_insects)$Labels,
-          attributes(dist_km)$Labels) # should be TRUE
-
-summary(lm(jaccard_dist_insects ~ dist_km))
-
-plot(jaccard_dist_insects ~ dist_km,
-     xlab = "Distance between sites (km)")
-abline(lm(jaccard_dist_insects ~ dist_km))
-
-# -----------------------------------------------------------------------------
-# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
-# vs.
-# Latitude differences between sites
-# -----------------------------------------------------------------------------
-# Compute matrix of pair-wise differences in latitude
-latitude_dif_mat <- outer(X = loc5_XY$y_loc_5, 
-                          Y = loc5_XY$y_loc_5, 
-                          FUN = "-")
-# row and column names
-dimnames(latitude_dif_mat) <- list(loc5_XY$loc_5, loc5_XY$loc_5)
-
-# transform to class "dist"
-latitude_dif <- as.dist(abs(latitude_dif_mat), diag = TRUE)
-# diag = TRUE is just for printing reasons
-identical(attributes(jaccard_dist_insects)$Labels,
-          attributes(latitude_dif)$Labels) # should be TRUE
-
-summary(lm(jaccard_dist_insects ~ latitude_dif))
-
-plot(jaccard_dist_insects ~ latitude_dif,
-     xlab = "Differences in latitude between sites (degrees)")
-abline(lm(jaccard_dist_insects ~ latitude_dif))
-
-# -----------------------------------------------------------------------------
-# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
-# vs.
-# Longitude differences between sites
-# -----------------------------------------------------------------------------
-# Compute matrix of pair-wise differences in latitude
-longitude_dif_mat <- outer(X = loc5_XY$x_loc_5, 
-                           Y = loc5_XY$x_loc_5, 
-                           FUN = "-")
-# row and column names
-dimnames(longitude_dif_mat) <- list(loc5_XY$loc_5, loc5_XY$loc_5)
-
-# transform to class "dist"
-longitude_dif <- as.dist(abs(longitude_dif_mat), diag = TRUE)
-# diag = TRUE is just for printing reasons
-identical(attributes(jaccard_dist_insects)$Labels,
-          attributes(longitude_dif)$Labels) # should be TRUE
-
-summary(lm(jaccard_dist_insects ~ longitude_dif))
-
-plot(jaccard_dist_insects ~ longitude_dif,
-     xlab = "Differences in longitude between sites (degrees)")
-abline(lm(jaccard_dist_insects ~ longitude_dif))
-
-# -----------------------------------------------------------------------------
-# Jaccard's similarity between sites in Syrphidae (site's jaccard's index from Syrphidae abundances) 
-# vs.
-# Altitude differences between sites
-# -----------------------------------------------------------------------------
-site_altitude <- copy(aggreg_altitude)
-setorder(site_altitude, loc_5)
-identical(attributes(jaccard_dist_insects)$Labels, site_altitude$loc_5)
-
-# Compute matrix of pair-wise differences in altitude
-alt_dif_mat <- outer(X = site_altitude$altitude_avg, 
-                     Y = site_altitude$altitude_avg, 
-                     FUN = "-")
-# row and column names
-dimnames(alt_dif_mat) <- list(site_altitude$loc_5, site_altitude$loc_5)
-
-# transform to class "dist"
-alt_dif <- as.dist(abs(alt_dif_mat), diag = TRUE)
-# attributes(alt_dif)$Labels <- site_altitude$loc_5
-
-summary(lm(jaccard_dist_insects ~ alt_dif))
-
-plot(jaccard_dist_insects ~ alt_dif,
-     xlab = "Altitude differences between sites (m)")
-abline(lm(jaccard_dist_insects ~ alt_dif))
-
-# -----------------------------------------------------------------------------
-# Plot all in one PDF file
-# -----------------------------------------------------------------------------
-pdf(file = paste0("output/syrphidae/", my_folder, "/",
-                  my_folder,
-                  "_syrphidae_loc5_exploratory_graphs.pdf"),
-    width = 15/2.54, height = 12/2.54, 
-    family = "Times", pointsize = 14)
-
-plot(jaccard_dist_insects ~ dist_km,
-     xlab = "Distance between sites (km)")
-abline(lm(jaccard_dist_insects ~ dist_km))
-gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ dist_km))),
-                 cex = 0.4) 
-
-plot(jaccard_dist_insects ~ latitude_dif,
-     xlab = "Differences in latitude between sites (degrees)")
-abline(lm(jaccard_dist_insects ~ latitude_dif))
-gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ latitude_dif))),
-                 cex = 0.4) 
-
-plot(jaccard_dist_insects ~ longitude_dif,
-     xlab = "Differences in longitude between sites (degrees)")
-abline(lm(jaccard_dist_insects ~ longitude_dif))
-gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ longitude_dif))),
-                 cex = 0.4) 
-
-plot(jaccard_dist_insects ~ alt_dif,
-     xlab = "Altitude differences between sites (m)")
-abline(lm(jaccard_dist_insects ~ alt_dif))
-gplots::textplot(object = capture.output(summary(lm(jaccard_dist_insects ~ alt_dif))),
-                 cex = 0.4) 
-
-# close the device
-dev.off()
+# remove not needed objects
+rm(pdf_file, explore_plots_space)

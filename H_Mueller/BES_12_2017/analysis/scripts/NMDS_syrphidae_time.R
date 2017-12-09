@@ -15,13 +15,14 @@ library(smacof)
 # =============================================================================
 # Prepare & plot nMDS results
 # =============================================================================
-# give directory name corresponding to a certain group of insects for analysis.
+# Give directory name corresponding to a certain group of insects for analysis.
 # imput/output if files takes place in this directory
 directory <- "syrphidae"
 
 # Build relative path
 my_path <- paste0("output/", directory, "/", directory)
 
+# Read selected sites dataset
 insects_dt <- data.table(read.csv(paste0(my_path, "_selected_sites_past&present.csv"), 
                                   stringsAsFactors = FALSE))
 
@@ -31,7 +32,7 @@ insects_dt <- insects_dt[!(year %in% c(1878, 1879))]
 # =============================================================================
 # Run nMDS with vegan & smacof packages
 # =============================================================================
-# Create location-by-insect-species matrix
+# Create year-by-insect-species matrix
 commat_year_insects_mat <- table( insects_dt[,.(year, insect_sp_analysis)] )
 # for easy visual inspection transform to data.frame object
 commat_year_insects_df <- as.data.frame.matrix(commat_year_insects_mat)
@@ -91,6 +92,7 @@ pdf_file <- paste0(my_path, "_year_Jaccard_insects_vs_plants.pdf"); pdf_file
 
 plot_insects_vs_plants_time(insects_dt = insects_dt,
                             nmds_results = nmds_results,
+                            main_title = paste0(toupper(directory), "; time"),
                             path = pdf_file)
 # Defensively shuts down all open graphics devices.
 # This is needed in case the plotting function returns with error and

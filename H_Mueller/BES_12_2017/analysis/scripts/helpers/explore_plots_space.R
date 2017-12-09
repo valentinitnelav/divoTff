@@ -1,10 +1,11 @@
 ###############################################################################
-## Function to run Exploratory graphs
+## Function to run Exploratory graphs for space analysis
 ###############################################################################
 
 explore_plots_space <- function(insects_dt, 
                                 nmds_results,
                                 site_altitude,
+                                main_title,
                                 path)
 {
   # -----------------------------------------------------------------------------
@@ -44,7 +45,8 @@ explore_plots_space <- function(insects_dt,
   
   print({  
     plot(formula_jacc_insect_by_dist_km,
-         xlab = "Distance between sites (km)")
+         xlab = "Distance between sites (km)",
+         main = main_title)
     abline(lm(formula_jacc_insect_by_dist_km))
     # plot lm summary text as graph
     gplots::textplot(object = capture.output(summary(lm(formula_jacc_insect_by_dist_km))),
@@ -73,7 +75,8 @@ explore_plots_space <- function(insects_dt,
   
   print({ 
     plot(formula_jacc_insect_by_lat,
-         xlab = "Differences in latitude between sites (degrees)")
+         xlab = "Differences in latitude between sites (degrees)",
+         main = main_title)
     abline(lm(formula_jacc_insect_by_lat))
     # plot lm summary text as graph
     gplots::textplot(object = capture.output(summary(lm(formula_jacc_insect_by_lat))),
@@ -104,7 +107,8 @@ explore_plots_space <- function(insects_dt,
   
   print({ 
     plot(formula_jacc_insect_by_long,
-         xlab = "Differences in longitude between sites (degrees)")
+         xlab = "Differences in longitude between sites (degrees)",
+         main = main_title)
     abline(lm(formula_jacc_insect_by_long))
     # plot lm summary text as graph
     gplots::textplot(object = capture.output(summary(lm(formula_jacc_insect_by_long))),
@@ -134,7 +138,8 @@ explore_plots_space <- function(insects_dt,
   
   print({ 
     plot(formula_jacc_insect_by_altit,
-         xlab = "Altitude differences between sites (m)")
+         xlab = "Altitude differences between sites (m)",
+         main = main_title)
     abline(lm(formula_jacc_insect_by_altit))
     # plot lm summary text as graph
     gplots::textplot(object = capture.output(summary(lm(formula_jacc_insect_by_altit))),
@@ -151,13 +156,16 @@ explore_plots_space <- function(insects_dt,
   commat_loc5_plants_df <- as.data.frame.matrix(commat_loc5_plants_mat)
   
   # Jaccard's index from plant abundances per site matrix (above)
-  jaccard_dist_plants <- vegan::vegdist(commat_loc5_plants_df, method = "jaccard", binary = TRUE)
+  jaccard_dist_plants <- vegan::vegdist(commat_loc5_plants_df, 
+                                        method = "jaccard", 
+                                        binary = TRUE)
   
   formula_jacc_plants_by_altit <- formula(jaccard_dist_plants ~ alt_dif)
   
   print({ 
     plot(formula_jacc_plants_by_altit,
-         xlab = "Altitude differences between sites (m)")
+         xlab = "Altitude differences between sites (m)",
+         main = main_title)
     abline(lm(formula_jacc_plants_by_altit))
     # plot lm summary text as graph
     gplots::textplot(object = capture.output(summary(lm(formula_jacc_plants_by_altit))),
@@ -172,7 +180,7 @@ explore_plots_space <- function(insects_dt,
   formula_jacc_insect_by_jacc_plants <- formula(jaccard_dist_insects ~ jaccard_dist_plants)
 
   print({ 
-    plot(formula_jacc_insect_by_jacc_plants)
+    plot(formula_jacc_insect_by_jacc_plants, main = main_title)
     tryCatch(abline(lm(formula_jacc_insect_by_jacc_plants)),
              error = function(e) "Not applicable")
     # plot lm summary text as graph

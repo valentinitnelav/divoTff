@@ -1,5 +1,5 @@
 ###############################################################################
-## Script for testing how Syrphidae insect species vary in space for
+## Script for testing how selected group of insect species vary in space for:
 # Thymus serpyllum aggr.
 # Carduus defloratus L. s.l.
 ###############################################################################
@@ -20,10 +20,12 @@ library(smacof)
 # =============================================================================
 # Prepare data
 # =============================================================================
-directory <- "syrphidae" # folder corresponding to a certain insect for analysis group 
+# give directory name corresponding to a certain group of insects for analysis.
+# imput/output if files takes place in this directory
+directory <- "syrphidae"
 
-insects_dt <- data.table(read.csv(paste0("output/", directory, 
-                                         "/syrphidae_selected_sites_past&present.csv"), 
+insects_dt <- data.table(read.csv(paste0("output/", directory, "/", directory,
+                                         "_selected_sites_past&present.csv"), 
                                   stringsAsFactors = FALSE))
 
 # check NA locations
@@ -35,11 +37,16 @@ insects_dt[is.na(loc_5)]
 # First choose Thymus case and then run all remaining code after this section.
 insects_subst <- insects_dt[plant_sp == "Thymus serpyllum aggr."]; my_folder <- "Thymus"
 # When you run the line above, skip the one line below for Carduus and 
-# jump directly to next section ("Plot altitude histograms")
+# jump directly to next section ("Build relative path")
 
 # Then return here and re-run for Carduus case
 insects_subst <- insects_dt[plant_sp == "Carduus defloratus L. s.l."]; my_folder <- "Carduus"
 ########################################
+
+# -------------------------------------
+# Build relative path
+# -------------------------------------
+my_path <- paste0("output/", directory, "/", my_folder, "/", my_folder, "_", directory)
 
 # -------------------------------------
 # Plot altitude histograms
@@ -53,8 +60,7 @@ my_histos <- altitude_histogram_panel(data = insects_subst,
                                       xintercept = 2500)
 
 # Save multiplot histograms of altitudes in PDF file at:
-my_histo_pdf <- paste0("output/", directory, "/", my_folder, "/", my_folder,
-                       "_syrphidae_loc5_histogram_altitude.pdf"); my_histo_pdf
+my_histo_pdf <- paste0(my_path, "_loc5_histogram_altitude.pdf"); my_histo_pdf
 
 ggsave(filename = my_histo_pdf, 
        plot = my_histos, 
@@ -109,9 +115,7 @@ nmds_plot <- plot_nmds_space(nmds_xy = nmds_points$nmds_pts_altit,
                              expand_y = c(1, 0)) # passed to scale_y_continuous()
 
 # Save plot to PDF file at:
-nmds_pdf_file <- paste0("output/", directory, "/", my_folder, "/",
-                        my_folder,
-                        "_syrphidae_loc5_NMDS_plot_altitude.pdf"); nmds_pdf_file
+nmds_pdf_file <- paste0(my_path, "_loc5_NMDS_plot_altitude.pdf"); nmds_pdf_file
 
 set.seed(66)
 ggsave(filename = nmds_pdf_file, 
@@ -130,8 +134,7 @@ rm(nmds_plot, plot_nmds_space, nmds_pdf_file)
 source("scripts/helpers/explore_plots_space.R")
 
 # run helper function and save exploratory graphs in PDF file at:
-pdf_file <- paste0("output/", directory, "/", my_folder, "/", 
-                   my_folder, "_syrphidae_loc5_exploratory_graphs.pdf"); pdf_file
+pdf_file <- paste0(my_path, "_loc5_exploratory_graphs.pdf"); pdf_file
 
 explore_plots_space(insects_dt    = insects_subst, 
                     nmds_results  = nmds_results, 

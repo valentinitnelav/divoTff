@@ -2,18 +2,21 @@
 ## Function to plot nmds results with ggplot
 ###############################################################################
 
-plot_nmds <- function(nmds_xy,
-                      label_varb,
-                      fill_varb,
-                      # package, dist_idx passed tofacet_wrap()
-                      package = "package",
-                      dist_idx = "dist_idx",
-                      # pj - PositionJitter object constructed with position_jitter()
-                      pj = position_jitter(width = 0.01, height = 0.01),
-                      expand_x = c(0.5, 0), # passed to scale_x_continuous()
-                      expand_y = c(0.5, 0), # passed to scale_y_continuous()
-                      extra_features = NULL)
+plot_nmds_space <- function(nmds_xy,
+                            label_varb,
+                            fill_varb,
+                            # package, dist_idx passed tofacet_wrap()
+                            package = "package",
+                            dist_idx = "dist_idx",
+                            # pj - PositionJitter object constructed with position_jitter()
+                            pj = position_jitter(width = 0.01, height = 0.01),
+                            expand_x = c(0.5, 0), # passed to scale_x_continuous()
+                            expand_y = c(0.5, 0), # passed to scale_y_continuous()
+                            extra_features = NULL)
 {
+  
+  
+  
   set.seed(66)
   nmds_plot <- 
     ggplot(data = nmds_xy, 

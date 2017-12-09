@@ -15,7 +15,7 @@ mueller_past <- readxl::read_excel(path = "data/Jeroen/Mueller Plants Pollinator
 
 setDT(mueller_past) # transform to data.table object
 
-# Select needed columns only
+# Select desired columns only
 mueller_past <- mueller_past[,.(year, altitude_mean_rounded,
                                 location3, location5,
                                 insectspecies, InsectOrderNew_WD,
@@ -30,7 +30,7 @@ mueller_2016 <- readxl::read_excel(path = "data/Jeroen/Mueller Plants Pollinator
 
 setDT(mueller_2016) # transform to data.table object
 
-# Select needed columns only
+# Select desired columns only
 mueller_2016 <- mueller_2016[,.(Site, location, location3, location5, 
                                 insectspecies, Order, Plant)]
 
@@ -97,7 +97,7 @@ mueller_2017 <- readxl::read_excel(path = "data/Jeroen/Mueller Plants Pollinator
 
 setDT(mueller_2017) # transform to data.table object
 
-# Select needed columns only
+# Select desired columns only
 mueller_2017 <- mueller_2017[,.(Site, insectspecies, `insect order`, `plant species-correctedWD`)]
 
 # -------------------------------------

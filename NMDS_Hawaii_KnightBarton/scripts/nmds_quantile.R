@@ -7,6 +7,12 @@ library(vegan)
 library(smacof)
 library(MASS)
 library(ggplot2)
+library(plotly) # for dynamic plots
+
+# sink(file = "scripts/sessionInfo.txt")
+# "Output of sessionInfo()"
+# sessionInfo()
+# sink()
 
 
 # Read & prepare data -----------------------------------------------------
@@ -16,9 +22,23 @@ dt_raw <- fread("data/KnightBarton_allstems3_KnightBarton_flat(6).csv")
 # subset data
 dt <- dt_raw[lifeform == "tree" & !is.na(dbh), .(island, site, species, dbh)]
 
-# Site names need to be trnasofrmed to lowercase so that ordering/sorting happens correctly
+# Translate site names need to lowercase so that ordering/sorting happens correctly
+# and label site classes without issues.
 dt[, site := tolower(site)]
 setorder(dt, site, dbh)
+
+# Label site classes
+dt[, site_class := "other"]
+
+dt[site %in% c("saddle 19",
+               "saddle 13",
+               "lava tree"), site_class := "young_soil"]
+
+dt[site %in% c("camp site transect 3",
+               "saddle kipuka",
+               "kula",
+               "mauna loa"), site_class := "high_elevation"]
+
 
 # Create site ID-s
 dt[, site_id := .GRP, by = site]
@@ -35,7 +55,7 @@ dt[, site_q := ifelse(dbh >= qunatile_75,
 
 # Save intermediary results
 write.csv(dt, "output/processed_data.csv", row.names = FALSE)
-dt_site_unq <- unique(dt[,.(site_q, site)], by = c("site_q", "site"))
+dt_site_unq <- unique(dt[,.(site_q, site, site_class, island)], by = c("site_q", "site"))
 write.csv(dt_site_unq, "output/site_IDs.csv", row.names = FALSE)
 
 
@@ -69,13 +89,13 @@ plot(pro)
 plot(pro, kind = 2)
 
 
-# Plot results ------------------------------------------------------------
+# Prepare data for plotting -----------------------------------------------
 
-# Prepare data for plotting in ggplot
 points <- rbind(nmds_bray_vegan$points, 
                 nmds_bray_smacof$conf, 
                 nmds_bray_MASS$points)
-points_dt <- data.table(site_q = rep(rownames(com_mat), times = 3),
+
+points_dt <- data.table(site_q = rownames(points),
                         MDS_1 = points[, 1],
                         MDS_2 = points[, 2],
                         package = rep(c("vegan", "smacof", "MASS"), 
@@ -83,10 +103,30 @@ points_dt <- data.table(site_q = rep(rownames(com_mat), times = 3),
 
 # Join with processed data and pull island and site id (as character) for each site id
 points_dt[dt, on = .(site_q), ':=' (island = island,
+                                    site_class = site_class,
+                                    site = site,
                                     site_id_ch = site_id_ch)]
 
-# Make plot
-nmds_plot <-
+
+# Compute Euclidian distances between pairs of sites
+euclid_dist <- points_dt[, .(dist = dist(cbind(MDS_1, MDS_2))), 
+                         by = .(package, site_id_ch, site, site_class, island)]
+euclid_dist_wide <- dcast(euclid_dist, site_id_ch + site + site_class + island ~ package, 
+                          value.var = "dist")
+
+write.csv(euclid_dist_wide, "output/euclidian_distances_within_sites.csv", row.names = FALSE)
+
+
+# Plot results ------------------------------------------------------------
+
+points_dt[, site_class := factor(x = site_class, 
+                          levels = c("other", "high_elevation", "young_soil"),
+                          labels = c("Other", "High elevation", "Young soil"),
+                          ordered = TRUE)]
+
+
+# Make base plot
+nmds_base_plot <-
   ggplot(data = points_dt, 
          aes(x = MDS_1, 
              y = MDS_2)) +
@@ -101,14 +141,42 @@ nmds_plot <-
   geom_text(aes(label = site_q), 
             vjust = 1,
             size = 2.5) +
-  facet_wrap(~ package, 
-             scales = "free") +
   theme_bw() +
   theme(panel.grid = element_blank())
 
+nmds_plot_by_package <- nmds_base_plot +
+  facet_wrap( ~ package,
+             ncol = 3,
+             scales = "free",
+             labeller = label_both)
+
+nmds_plot_by_package_site_cls <- nmds_base_plot +
+  facet_wrap(site_class ~ package,
+             ncol = 3,
+             scales = "free",
+             labeller = label_both)
+
+# nmds_plot_by_package_island <- nmds_base_plot +
+#   facet_wrap(package ~ island, 
+#              ncol = 5,
+#              scales = "free", 
+#              labeller = label_both)
+
+
 # Save plot to PDF
-ggsave(filename = "output/nMDS_plots_2018_05_23.pdf",
-       plot = nmds_plot,
+ggsave(filename = "output/nMDS_plots_by_package.pdf",
+       plot = nmds_plot_by_package,
        width = 50,
        height = 20,
        units = "cm")
+
+ggsave(filename = "output/nmds_plot_by_package_site_cls.pdf",
+       plot = nmds_plot_by_package_site_cls,
+       width = 50,
+       height = 50,
+       units = "cm")
+
+
+# Make dynamic plot
+plot_html <- ggplotly(nmds_plot_by_package_site_cls)
+htmlwidgets::saveWidget(plot_html, "nmds_plot_by_package_site_cls.html")

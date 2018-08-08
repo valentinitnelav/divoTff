@@ -1,5 +1,5 @@
 # /////////////////////////////////////////////////////////////////////////
-## Global map for pollen limitation dataset
+## Global maps for pollen limitation dataset for ESA talk of TK.
 # /////////////////////////////////////////////////////////////////////////
 
 rm(list = ls()); gc(reset = TRUE)
@@ -36,6 +36,9 @@ pl_dt[, year_int := as.integer(Year)]
 pl_dt[Year == "2003b"]
 pl_dt[Year == "2003b", year_int := 2003]
 
+# Remove records with NA for year
+pl_dt <- pl_dt[!is.na(year_int)]
+
 # Transform year to factor with two levels so to map it into color aesthetic in
 # ggplot(). Two year categories.
 range(pl_dt$year_int, na.rm = TRUE)
@@ -66,9 +69,10 @@ pl_dt[, c("X.prj","Y.prj") := data.table(rgdal::project(xy   = cbind(lon, lat),
 # "+init=ESRI:54030" same as "+proj=robin"
 
 # OPTIONAL - check points with interactive map
-points_WGS84 <- sp::SpatialPointsDataFrame(coords      = pl_dt[,.(lon,lat)], # order matters
-                                           data        = pl_dt[,.(unique_number)], 
-                                           proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
+points_WGS84 <- 
+  sp::SpatialPointsDataFrame(coords      = pl_dt[,.(lon,lat)], # order matters
+                             data        = pl_dt[,.(unique_number)], 
+                             proj4string = CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
 html_map <- mapview(points_WGS84)
 # html_map
 # save as html
@@ -81,9 +85,9 @@ html_map <- mapview(points_WGS84)
 
 load("Data/NaturalEarth.RData"); setDT(lbl.Y); setDT(lbl.X)
 # Details about NaturalEarth shapefiles:
-#   The files were already downloaded from http://www.naturalearthdata.com/
-#   Graticules were adjusted to 10 dg for latitude lines and 20 dg for longitude lines 
-#  (some editing was carried in ArcMap)
+#  The files were already downloaded from http://www.naturalearthdata.com/
+#  Graticules were adjusted to 10 dg for latitude lines and 20 dg for longitude
+#  lines (some editing was carried in ArcMap)
 
 # Project from long-lat (unprojected) to Robinson projection
 NE_countries_rob  <- spTransform(NE_countries, CRS("+proj=robin"))
@@ -163,10 +167,11 @@ base_map <-
                aes(x = long, 
                    y = lat), 
                colour ="black", 
-               fill   ="transparent", # try also "lightblue" but add a separate polygon as first layer
+               # try also fill="lightblue" but add a separate polygon as first layer
+               fill   ="transparent", 
                size   = 0.2) +
-  # "Regions defined for each Polygons" warning has to do with fortify transformation. 
-  # Might get deprecated in future!
+  # "Regions defined for each Polygons" warning has to do with fortify
+  # transformation. Might get deprecated in future! 
   # ___ the default ratio = 1 in coord_fixed ensures that one unit on the x-axis 
   # is the same length as one unit on the y-axis
   coord_fixed(ratio = 1) +
@@ -193,6 +198,9 @@ custom_theme <-
 
 # ... Add study locations (points) ----------------------------------------
 
+# TK: "A figure that shows the map only of studies conducted from 1981-2003.
+# This would be the state of our knowledge from the first meta-analysis I
+# conducted. I just want one color for dots on the map"
 map_1 <- base_map +
   geom_point(data = pl_dt, 
              aes(x = X.prj, 
@@ -207,6 +215,7 @@ ggsave(plot = map_1, filename = "output/global_map_all_pts_draft_2.png",
        width = 14, height = 7, units = "cm", dpi = 600)
 
 
+# TK: "A figure that shows the map of all studies"
 map_2 <- base_map +
   geom_point(data = pl_dt[year_int %between% c(1981, 2003)], 
              aes(x = X.prj, 
@@ -220,3 +229,59 @@ map_2 <- base_map +
 ggsave(plot = map_2, filename = "output/global_map_1981_2003_draft_2.png", 
        width = 14, height = 7, units = "cm", dpi = 600)
 
+
+# TK: "Can I trouble you for one more figure in which the points from early
+# years (1981-2003) and late years (2004-present) are on the same global map but
+# the dots are colored to indicate whether they are from the early years vs.
+# late years."
+# VS: A big issue here is overplotting.
+
+# Try out combinations of colors
+colors_lst <- list(
+  c("1981 - 2003" = "#1b9e77",  # green
+    "2004 - 2015" = "#d95f02"), # red
+  
+  c("1981 - 2003" = "#d95f02",  # red
+    "2004 - 2015" = "#1b9e77"), # green
+  
+  c("1981 - 2003" = "#d95f02",  # red
+    "2004 - 2015" = "#7570b3")  # violet
+)
+
+for (i in 1:length(colors_lst)){
+  map_3 <- base_map +
+    geom_point(data = pl_dt, 
+               aes(x = X.prj, 
+                   y = Y.prj,
+                   color = year_ctg),
+               alpha = 0.6,
+               size  = 0.6,
+               shape = 1) +
+    scale_color_manual(name   = "Period",
+                       values = colors_lst[[i]]) +
+    custom_theme
+  
+  ggsave(plot = map_3, 
+         filename = paste0("output/global_map_year_cls_draft_", i, "-1.png"), 
+         width = 14, height = 7, units = "cm", dpi = 600)
+  
+  # Try out fill for points
+  map_3_fill <- base_map +
+    geom_point(data = pl_dt, 
+               aes(x = X.prj, 
+                   y = Y.prj,
+                   color = year_ctg,
+                   fill = year_ctg),
+               alpha = 0.6,
+               size  = 0.6,
+               shape = 21) +
+    scale_color_manual(name   = "Period",
+                       values = colors_lst[[i]]) +
+    scale_fill_manual(name   = "Period",
+                      values = colors_lst[[i]]) +
+    custom_theme
+  
+  ggsave(plot = map_3_fill, 
+         filename = paste0("output/global_map_year_cls_draft_", i, "-2.png"), 
+         width = 14, height = 7, units = "cm", dpi = 600)
+}

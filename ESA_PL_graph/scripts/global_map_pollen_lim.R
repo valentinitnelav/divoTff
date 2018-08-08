@@ -198,11 +198,15 @@ custom_theme <-
 
 # ... Add study locations (points) ----------------------------------------
 
+# Select only unique - XY. This is an attempt to reduce from the over-plotting
+# effect when/if using transparency.
+pl_dt_unqXY <- unique(pl_dt, by = c("Longitude", "Latitude"))
+
 # TK: "A figure that shows the map only of studies conducted from 1981-2003.
 # This would be the state of our knowledge from the first meta-analysis I
 # conducted. I just want one color for dots on the map"
 map_1 <- base_map +
-  geom_point(data = pl_dt, 
+  geom_point(data = pl_dt_unqXY, 
              aes(x = X.prj, 
                  y = Y.prj),
              color = "black",
@@ -211,13 +215,14 @@ map_1 <- base_map +
              alpha = 1) +
   custom_theme
 
-ggsave(plot = map_1, filename = "output/global_map_all_pts_draft_2.png", 
+ggsave(plot = map_1, 
+       filename = "output/global_map_all_pts_draft_2.png", 
        width = 14, height = 7, units = "cm", dpi = 600)
 
 
 # TK: "A figure that shows the map of all studies"
 map_2 <- base_map +
-  geom_point(data = pl_dt[year_int %between% c(1981, 2003)], 
+  geom_point(data = pl_dt_unqXY[year_int %between% c(1981, 2003)], 
              aes(x = X.prj, 
                  y = Y.prj),
              color = "black",
@@ -226,15 +231,17 @@ map_2 <- base_map +
              alpha = 1) +
   custom_theme
 
-ggsave(plot = map_2, filename = "output/global_map_1981_2003_draft_2.png", 
+ggsave(plot = map_2, 
+       filename = "output/global_map_1981_2003_draft_2.png", 
        width = 14, height = 7, units = "cm", dpi = 600)
 
 
 # TK: "Can I trouble you for one more figure in which the points from early
 # years (1981-2003) and late years (2004-present) are on the same global map but
 # the dots are colored to indicate whether they are from the early years vs.
-# late years."
-# VS: A big issue here is overplotting.
+# late years." 
+# VS: A big issue here is overplotting. Therefore, I tried transparency and
+# using only unique pairs of XY.
 
 # Try out combinations of colors
 colors_lst <- list(
@@ -250,7 +257,7 @@ colors_lst <- list(
 
 for (i in 1:length(colors_lst)){
   map_3 <- base_map +
-    geom_point(data = pl_dt, 
+    geom_point(data = pl_dt_unqXY, 
                aes(x = X.prj, 
                    y = Y.prj,
                    color = year_ctg),
@@ -267,7 +274,7 @@ for (i in 1:length(colors_lst)){
   
   # Try out fill for points
   map_3_fill <- base_map +
-    geom_point(data = pl_dt, 
+    geom_point(data = pl_dt_unqXY, 
                aes(x = X.prj, 
                    y = Y.prj,
                    color = year_ctg,

@@ -81,7 +81,7 @@ lespedeza_barplot <-
     # Final adjustments:
     # set axis labels
     labs(x = "", 
-         y = expression("Population growth rate,"~lambda)) +
+         y = expression("Population growth rate ("~lambda~")")) +
     theme_bw() + # eliminate default background 
     theme(
         panel.grid = element_blank(), # eliminate grids
